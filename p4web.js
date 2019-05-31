@@ -258,7 +258,7 @@ module.exports = function(init_opts) {
 	}
 
 	//do once:
-	rt_p_web.web1_p = (opts, post_s_or_o, post_type) => Promise( (resolve, reject)=>{
+	rt_p_web.web1_p = (opts, post_s_or_o, post_type) => new Promise( (resolve, reject)=>{
 		var rt = { STS: 'KO' };
 		try {
 			rt.opts = opts;
