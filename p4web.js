@@ -2,6 +2,8 @@ var module_name = 'p4web';//Promise For Web
 
 module.exports = function(init_opts) {
 
+	const isEmpty=(o,i)=>{for(i in o){return!1}return!0}
+	
 	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {});
 
 	const o2s = function(o) { try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } };
@@ -33,6 +35,18 @@ module.exports = function(init_opts) {
 	const querystring = require('querystring');
 	const fs = require('fs');
 	const os = require('os');
+
+	// Q => P
+	var P = function(o){
+		if(typeof(o)=='function'){
+			return new Promise(f);
+		}
+		return Promise.resolve(o);
+	};
+	P.delay = (timeout) => new Promise(resolve=>setTimeout(()=>resolve(),timeout||1));
+	P.all = (a) => Promise.all(a);
+	P.reject = (o) => Promise.reject(o);
+	P.resolve = (o) => Promise.resolve(o);
 
 	const PSTS = (STS, rst, errmsg, errcode) => Promise.resolve({ STS, rst, errmsg, errcode });
 	const POK = (rst) => PSTS('OK', rst);
@@ -163,6 +177,7 @@ module.exports = function(init_opts) {
 		options,
 		logger,
 		argv2o,
+		isEmpty,
 		o2s,
 		s2o,
 		o2o,
@@ -170,6 +185,7 @@ module.exports = function(init_opts) {
 		stream2buffer_p,
 		base64_encode,
 		base64_decode,
+		P,
 		PSTS,
 		POK,
 		PKO,
@@ -371,105 +387,105 @@ module.exports = function(init_opts) {
 				logger.log('DEBUG', 'post_s=', post_s);
 				logger.log('DEBUG', 'reqp=', reqp);
 			}
-			var req = (web.request || web.createConnection)(reqp, resp => {
+			var req = (web.request || web.createConnection)(reqp, async(resp) => {
 				var _encoding = reqp.encoding || '';
 
 				var content_encoding = resp.headers['content-encoding'];
 
-				//TODO using try{var buff = await stream2buffer_p(resp)}catch(err){return reject(err)}
-				stream2buffer_p(resp)
-					.catch(err => reject(err))
-					.then(buff => {
-						rt['statusCode'] = resp.statusCode;
-						var headers = resp.headers || {};
-						rt['headers'] = headers;
+				try{
+					var buff = await stream2buffer_p(resp);
+				}catch(err){
+					return reject(err);
+				}
+				rt['statusCode'] = resp.statusCode;
+				var headers = resp.headers || {};
+				rt['headers'] = headers;
 
-						///////////////////////////////////////////////////////// cookie {
-						var cookie_s_in_header = headers['Cookie'] || "";
-						var headers_set_cookie_a = resp.headers['set-cookie']; //注意它是个数组...
-						var cookies_pack_a = loadCookieFromFile(cookies_pack_id) || {};
-						var _Cookies = cookies_pack_a[_domain] || {};
-						if (headers_set_cookie_a) {
-							var f_update = false;
-							headers_set_cookie_a.forEach(function(headers_set_cookie) {
-								if (debug_level > 3)
-									logger.log('set cookie', headers_set_cookie);
-								o2o(_Cookies, cookie_s2o(headers_set_cookie));
-								f_update = true;
-							});
-							if (f_update) {
-								rt['cookies'] = _Cookies;
-								cookies_pack_a[_domain] = _Cookies;
-								if (cookie_readonly) {}
-								else {
-									saveCookieToFile(cookies_pack_id, cookies_pack_a);
-								}
-							}
+				///////////////////////////////////////////////////////// cookie {
+				var cookie_s_in_header = headers['Cookie'] || "";
+				var headers_set_cookie_a = resp.headers['set-cookie']; //注意它是个数组...
+				var cookies_pack_a = loadCookieFromFile(cookies_pack_id) || {};
+				var _Cookies = cookies_pack_a[_domain] || {};
+				if (headers_set_cookie_a) {
+					var f_update = false;
+					headers_set_cookie_a.forEach(function(headers_set_cookie) {
+						if (debug_level > 3)
+							logger.log('set cookie', headers_set_cookie);
+						o2o(_Cookies, cookie_s2o(headers_set_cookie));
+						f_update = true;
+					});
+					if (f_update) {
+						rt['cookies'] = _Cookies;
+						cookies_pack_a[_domain] = _Cookies;
+						if (cookie_readonly) {}
+						else {
+							saveCookieToFile(cookies_pack_id, cookies_pack_a);
 						}
-						///////////////////////////////////////////////////////// cookie }
+					}
+				}
+				///////////////////////////////////////////////////////// cookie }
 
-						rt['exectime'] = (new Date()).getTime() - tm0;
+				rt['exectime'] = (new Date()).getTime() - tm0;
 
-						if (content_encoding == 'gzip') {
-							rt['gz_len'] = Buffer.byteLength(buff);
-							var buff_s = buff.toString();
-							try {
-								var decoded = zlib.gunzipSync(buff);
-								var body; //= decoded ? decoded.toString() : "";
-								if (_encoding) {
-									var iconv = require('iconv-lite');
-									body = iconv.decode(decoded, _encoding) || "";
-								}
-								else {
-									body = decoded ? decoded.toString() : "";
-								}
-								rt['body'] = body;
-								rt['body_len'] = body.length; //Buffer.byteLength(body);
-								rt.STS = 'OK';
-								resolve(rt);
-							}
-							catch (ex) {
-								logger.log('DBG', ex);
-								reject(ex);
-							}
-							//if((!body) && buff_s){
-							//	logger.log('DEBUG: web1_q failed to decode',rt['gz_len'],buff_s);
-							//}
-						}
-						else if (content_encoding == 'deflate') {
-							rt['gz_len'] = Buffer.byteLength(buff);
-							zlib.inflate(buff, function(err, decoded) {
-								var body = decoded ? decoded.toString() : "";
-								rt['body'] = body;
-								rt['body_len'] = body.length; //body?body.length:0;
-								rt.STS = 'OK';
-								resolve(rt);
-							});
+				if (content_encoding == 'gzip') {
+					rt['gz_len'] = Buffer.byteLength(buff);
+					var buff_s = buff.toString();
+					try {
+						var decoded = zlib.gunzipSync(buff);
+						var body; //= decoded ? decoded.toString() : "";
+						if (_encoding) {
+							var iconv = require('iconv-lite');
+							body = iconv.decode(decoded, _encoding) || "";
 						}
 						else {
-							var buff_s;
-							if (_encoding == 'base64') { //deprecated, for some old interfaces
-								buff_s = buff.toString('base64') || "";
-							}
-							else if (_encoding) {
-								var iconv = require('iconv-lite');
-								buff_s = iconv.decode(buff, _encoding) || "";
-							}
-							else {
-								buff_s = buff.toString();
-							}
-							rt.body = buff_s;
-							if (!buff_s) {
-								rt.reqp = reqp; //for debug only
-							}
-							else {
-								rt['body_len'] = buff_s.length;
-								rt.STS = 'OK';
-							}
-							resolve(rt);
+							body = decoded ? decoded.toString() : "";
 						}
-						clearTimeout(tm_check);
+						rt['body'] = body;
+						rt['body_len'] = body.length; //Buffer.byteLength(body);
+						rt.STS = 'OK';
+						resolve(rt);
+					}
+					catch (ex) {
+						logger.log('DBG', ex);
+						reject(ex);
+					}
+					//if((!body) && buff_s){
+					//	logger.log('DEBUG: web1_q failed to decode',rt['gz_len'],buff_s);
+					//}
+				}
+				else if (content_encoding == 'deflate') {
+					rt['gz_len'] = Buffer.byteLength(buff);
+					zlib.inflate(buff, function(err, decoded) {
+						var body = decoded ? decoded.toString() : "";
+						rt['body'] = body;
+						rt['body_len'] = body.length; //body?body.length:0;
+						rt.STS = 'OK';
+						resolve(rt);
 					});
+				}
+				else {
+					var buff_s;
+					if (_encoding == 'base64') { //deprecated, for some old interfaces
+						buff_s = buff.toString('base64') || "";
+					}
+					else if (_encoding) {
+						var iconv = require('iconv-lite');
+						buff_s = iconv.decode(buff, _encoding) || "";
+					}
+					else {
+						buff_s = buff.toString();
+					}
+					rt.body = buff_s;
+					if (!buff_s) {
+						rt.reqp = reqp; //for debug only
+					}
+					else {
+						rt['body_len'] = buff_s.length;
+						rt.STS = 'OK';
+					}
+					resolve(rt);
+				}
+				clearTimeout(tm_check);
 			}).on('error', err => {
 				logger.log(`problem with request: ${err.message}`);
 				clearTimeout(tm_check);
@@ -482,7 +498,7 @@ module.exports = function(init_opts) {
 		}
 		catch (ex) {
 			rt.errmsg = '' + ex;
-			resolve(rt);
+			return resolve(rt);
 		}
 	})
 	;//web_p
