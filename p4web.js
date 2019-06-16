@@ -47,6 +47,8 @@ module.exports = function(init_opts) {
 	P.all = (a) => Promise.all(a);
 	P.reject = (o) => Promise.reject(o);
 	P.resolve = (o) => Promise.resolve(o);
+	//Promise.fail = Promise.catch;
+	//Promise.done = Promise.then;//cannot just map like this, need done(ressolve_func, reject_func)
 
 	const PSTS = (STS, rst, errmsg, errcode) => Promise.resolve({ STS, rst, errmsg, errcode });
 	const POK = (rst) => PSTS('OK', rst);
