@@ -49,6 +49,7 @@ module.exports = function(init_opts) {
 	const PKO = (rst, errmsg, errcode) => PSTS('KO', rst, errmsg, errcode);
 
 	const isOK = (o) => (o && o.STS == 'OK');
+	function isAllOK(ra){ var b=false; for(var k in ra){ if(!isOK(ra[k]))return false; b=true; } return b; }
 
 	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0x111110000011111000 or string '1111-11' with predefined name
 	//fmt_a:{'YYYY':'1111',....}
@@ -192,6 +193,7 @@ module.exports = function(init_opts) {
 		getTimeStr,
 		getTimeStr2,
 		isOK,
+		isAllOK,
 		loadCookieFromFile,
 		saveCookieToFile,
 		loadCookieFromFileRaw,
