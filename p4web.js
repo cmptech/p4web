@@ -210,7 +210,7 @@ module.exports = function(init_opts) {
 	rt_p_web.build_post = (reqp, post_data, post_type) => {
 
 		if (!post_data) return null;
-		if (typeof(post_data) == 'string') return post_data;
+		if (typeof(post_data) == 'string' && post_type != "multipart") return post_data;
 
 		function Build_Form_Part(name, value, boundaryKey, filename) {
 			if (!filename) {
@@ -256,6 +256,12 @@ module.exports = function(init_opts) {
 				reqp['Content-Type'] = 'multipart/form-data; boundary=' + `--${boundaryKey}`;
 
 				return Buffer.concat(s_a);
+			case 'multipart':
+				var reg = /--(.*?)\r/;
+				var rt = reg.exec(post_data);
+		
+				reqp['Content-Type'] =  'multipart/form-data; boundary='+rt[1];
+			  return post_data;
 			default:
 				throw new Error('unsupport post type ' + post_type);
 		}
@@ -279,6 +285,9 @@ module.exports = function(init_opts) {
 		try {
 			rt.opts = opts;
 			var reqp = o2o({}, (typeof(opts) == 'string') ? url.parse(opts) : opts);
+
+			if(!reqp.agent && options.agent) reqp.agent = options.agent;//using default agent if any.
+
 			var _url = reqp.url;
 			var _hostname = reqp.hostname;
 			if (!_hostname) {
@@ -379,7 +388,9 @@ module.exports = function(init_opts) {
 				else if (reqp.Referer) {
 					reqp.headers['Referer'] = reqp.Referer;
 				}
-				//else reqp.headers['Referer'] = reqp.url || '';//TODO
+				else{
+					reqp.headers['Referer'] = reqp.href;//TODO...
+				}
 			}
 			var timeout_check = reqp.timeout_check || 30000;
 			var tm_check = setTimeout(() => {
@@ -503,6 +514,7 @@ module.exports = function(init_opts) {
 			if (post_s) {
 				req.write(post_s)
 			}
+			if (debug_level > 2) logger.log('---- before req.end()',reqp.url || reqp.href);
 			req.end();
 		}
 		catch (ex) {
