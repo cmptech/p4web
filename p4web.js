@@ -1,4 +1,4 @@
-var module_name = 'p4web';//Promise For Web
+var module_name = 'p4web';// p4web - Promise For Web
 
 module.exports = function(init_opts) {
 
@@ -36,27 +36,22 @@ module.exports = function(init_opts) {
 	const fs = require('fs');
 	const os = require('os');
 
-	// Q => P
-	var P = function(o){
-		if(typeof(o)=='function'){
-			return new Promise(f);
-		}
-		return Promise.resolve(o);
+	var P = function(o){ //NOTES: don't use arrow func on construtor !
+		return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o);
 	};
-	P.delay = (timeout) => new Promise(resolve=>setTimeout(()=>resolve(),timeout||1));
+	P.delay = (timeout) => P(resolve=>setTimeout(()=>resolve(),timeout||1));
 	P.all = (a) => Promise.all(a);
 	P.reject = (o) => Promise.reject(o);
 	P.resolve = (o) => Promise.resolve(o);
-	//Promise.fail = Promise.catch;
-	//Promise.done = Promise.then;//cannot just map like this, need done(ressolve_func, reject_func)
 
-	const PSTS = (STS, rst, errmsg, errcode) => Promise.resolve({ STS, rst, errmsg, errcode });
+	const PSTS = (STS, rst, errmsg, errcode) => P({ STS, rst, errmsg, errcode });
 	const POK = (rst) => PSTS('OK', rst);
 	const PKO = (rst, errmsg, errcode) => PSTS('KO', rst, errmsg, errcode);
 
 	const isOK = (o) => (o && o.STS == 'OK');
 
-	//NOTES: fmt is not support yet...
+	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0x111110000011111000 or string '1111-11' with predefined name
+	//fmt_a:{'YYYY':'1111',....}
 	const getTimeStr = (dt, fmt, tz) => (dt = dt || new Date(), (new Date(dt.getTime() + ((tz === null) ? 0 : ((tz || tz === 0) ? tz : (-dt.getTimezoneOffset() / 60))) * 3600 * 1000)).toISOString().replace('T', ' ').substr(0, 19));
 
 	//backup plan if fmt really needs, but it depends on moment-timezone lib
@@ -149,16 +144,17 @@ module.exports = function(init_opts) {
 		return false;
 	}
 
-	async function stream2str_p(stream,maxTimeout){
-		if(!maxTimeout)maxTimeout=30000;//TODO get from argo...
-		return new Promise( (resolve, reject) => {
-			setTimeout(()=>reject({STS:"KO",errmsg:"Timeout("+(maxTimeout/1000)+" sec) at stream2str_p()"}),maxTimeout);
-			stream2str(stream,(s)=>resolve( s? (s2o(s)||{STS:"KO",errmsg:"Not understand s",s}) : {}))
-		});
-	}
+	//TODO 
+	//async function stream2str_p(stream,maxTimeout){
+	//	if(!maxTimeout)maxTimeout=30000;//TODO get from argo...
+	//	return new Promise( (resolve, reject) => {
+	//		setTimeout(()=>reject({STS:"KO",errmsg:"Timeout("+(maxTimeout/1000)+" sec) at stream2str_p()"}),maxTimeout);
+	//		stream2str(stream,(s)=>resolve( s? (s2o(s)||{STS:"KO",errmsg:"Not understand s",s}) : {}))
+	//	});
+	//}
 
 	async function stream2buffer_p(stream){
-		return new Promise( (resolve, reject) =>{
+		return P( (resolve, reject) =>{
 			var _bf = [];
 			stream.on('data', function(chunk) {
 				_bf.push(chunk);
@@ -276,7 +272,7 @@ module.exports = function(init_opts) {
 	}
 
 	//do once:
-	rt_p_web.web1_p = (opts, post_s_or_o, post_type) => new Promise( (resolve, reject)=>{
+	rt_p_web.web1_p = (opts, post_s_or_o, post_type) => P( (resolve, reject)=>{
 		var rt = { STS: 'KO' };
 		try {
 			rt.opts = opts;
@@ -318,6 +314,12 @@ module.exports = function(init_opts) {
 					req_cookie_a = cookie_s2o(reqp.cookies_full_s);
 				}
 
+			if (reqp.cookies_add) { //add
+				for (var k in reqp.cookies_add) {
+					req_cookie_a[k] = reqp.cookies_add[k];
+				}
+			}
+
 			if (reqp.cookies_sub) { //delete
 				for (var k in reqp.cookies_sub) {
 					delete(req_cookie_a[k]);
@@ -343,7 +345,6 @@ module.exports = function(init_opts) {
 			//////////////////////////////////////////////// handle cookies before send }
 
 			var post_s = reqp.post_s || rt_p_web.build_post(reqp, post_s_or_o, post_type);
-			//logger.log('DBG post_s',post_s,post_s_or_o);
 
 			//override 'Content-Type' if request
 			if (reqp['Content-Type']) reqp.headers['Content-Type'] = reqp['Content-Type'];
@@ -376,6 +377,7 @@ module.exports = function(init_opts) {
 				else if (reqp.Referer) {
 					reqp.headers['Referer'] = reqp.Referer;
 				}
+				//else reqp.headers['Referer'] = reqp.url || '';//TODO
 			}
 			var timeout_check = reqp.timeout_check || 30000;
 			var tm_check = setTimeout(() => {
@@ -391,6 +393,9 @@ module.exports = function(init_opts) {
 			}
 			var req = (web.request || web.createConnection)(reqp, async(resp) => {
 				var _encoding = reqp.encoding || '';
+
+				if(!resp)resp={};
+				if(!resp.headers)resp.headers={};
 
 				var content_encoding = resp.headers['content-encoding'];
 
@@ -505,7 +510,7 @@ module.exports = function(init_opts) {
 	})
 	;//web_p
 
-	rt_p_web.web_p = (opts, post_s_or_o, post_type) => new Promise( (resolve, reject) =>{
+	rt_p_web.web_p = (opts, post_s_or_o, post_type) => P( (resolve, reject) =>{
 		//enqueue
 		_task_q.push(() => (++_concur_c,
 			rt_p_web.web1_p(opts, post_s_or_o, post_type)
