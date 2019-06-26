@@ -207,7 +207,7 @@ module.exports = function(init_opts) {
 		filename: (typeof(__filename) != 'undefined') ? __filename : '???',
 	};
 
-	rt_p_web.build_post = (reqp, post_data, post_type) => {
+	rt_p_web.build_post = (headers, post_data, post_type) => {
 
 		if (!post_data) return null;
 		if (typeof(post_data) == 'string' && post_type != "multipart") return post_data;
@@ -253,14 +253,14 @@ module.exports = function(init_opts) {
 				}
 				s_a = s_a.concat(new Buffer(`${crlf}----${boundaryKey}--`));
 
-				reqp['Content-Type'] = 'multipart/form-data; boundary=' + `--${boundaryKey}`;
+				headers['Content-Type'] = 'multipart/form-data; boundary=' + `--${boundaryKey}`;
 
 				return Buffer.concat(s_a);
 			case 'multipart':
 				var reg = /--(.*?)\r/;
 				var rt = reg.exec(post_data);
 		
-				reqp['Content-Type'] =  'multipart/form-data; boundary='+rt[1];
+				headers['Content-Type'] =  'multipart/form-data; boundary='+rt[1];
 			  return post_data;
 			default:
 				throw new Error('unsupport post type ' + post_type);
@@ -355,9 +355,8 @@ module.exports = function(init_opts) {
 			rt['req_cookie_s'] = req_cookie_s;
 			//////////////////////////////////////////////// handle cookies before send }
 
-			var post_s = reqp.post_s || rt_p_web.build_post(reqp, post_s_or_o, post_type);
+			var post_s = reqp.post_s || rt_p_web.build_post(reqp.headers, post_s_or_o, post_type);
 
-			//override 'Content-Type' if request
 			if (reqp['Content-Type']) reqp.headers['Content-Type'] = reqp['Content-Type'];
 
 			if (post_s) {
