@@ -2,6 +2,8 @@ var module_name = 'p4web';// p4web - Promise For Web
 
 module.exports = function(init_opts) {
 
+	const getRegExpMatch = (re,s) => { var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" };
+	
 	const isEmpty=(o,i)=>{for(i in o){return!1}return!0}
 	
 	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {});
@@ -145,27 +147,32 @@ module.exports = function(init_opts) {
 		return false;
 	}
 
-	//TODO 
-	//async function stream2str_p(stream,maxTimeout){
-	//	if(!maxTimeout)maxTimeout=30000;//TODO get from argo...
-	//	return new Promise( (resolve, reject) => {
-	//		setTimeout(()=>reject({STS:"KO",errmsg:"Timeout("+(maxTimeout/1000)+" sec) at stream2str_p()"}),maxTimeout);
-	//		stream2str(stream,(s)=>resolve( s? (s2o(s)||{STS:"KO",errmsg:"Not understand s",s}) : {}))
+	//const stream2bf=(st,cb)=>{var bf = new Buffer(0);mapEvents(st,{error:e=>cb(''+e),data:c=>bf=Buffer.concat([bf, c]),end:()=>cb(bf)})}
+	//const stream2buffer_p = (st) => P( (resolve,reject) => {var bf = new Buffer(0);mapEvents(st,{error:e=>reject(e),data:c=>bf=Buffer.concat([bf, c]),end:()=>cb(bf)})});
+	const stream2buffer_p = (stream) => P( (resolve, reject) =>{
+		var _bf = new Buffer(0);
+		stream.on('data', function(chunk) {
+			_bf = Buffer.concat([_bf,chunk]);
+		}).on('end', function() {
+			resolve(_bf);
+		}).on('error', function(err) {
+			reject(err);
+		});
+	});
+	//prev
+	//function stream2buffer_p(stream){
+	//	return P( (resolve, reject) =>{
+	//		//var _bf = new Buffer();
+	//		var _bf = [];
+	//		stream.on('data', function(chunk) {
+	//			_bf.push(chunk);//TODO rt.concat([chunk]);
+	//		}).on('end', function() {
+	//			resolve(Buffer.concat(_bf));
+	//		}).on('error', function(err) {
+	//			reject(err);
+	//		});
 	//	});
 	//}
-
-	async function stream2buffer_p(stream){
-		return P( (resolve, reject) =>{
-			var _bf = [];
-			stream.on('data', function(chunk) {
-				_bf.push(chunk);
-			}).on('end', function() {
-				resolve(Buffer.concat(_bf));
-			}).on('error', function(err) {
-				reject(err);
-			});
-		});
-	}
 
 	const setDebugLevel = d => {
 		if (d > 0) logger.log(module_name + '.setDebugLevel=', d);
@@ -176,6 +183,7 @@ module.exports = function(init_opts) {
 		options,
 		logger,
 		argv2o,
+		getRegExpMatch,
 		isEmpty,
 		o2s,
 		s2o,
@@ -279,6 +287,7 @@ module.exports = function(init_opts) {
 		if (_concur_checking) setTimeout(() => _process_task_q(), rt_p_web.concur_timeout)
 	}
 
+	//NOTES: seems concurrent in macox has strange ssl problem.  will try to improve in future ...
 	//do once:
 	rt_p_web.web1_p = (opts, post_s_or_o, post_type) => P( (resolve, reject)=>{
 		var rt = { STS: 'KO' };
