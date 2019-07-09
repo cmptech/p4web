@@ -20,7 +20,6 @@ module.exports = function(init_opts) {
 		}
 		return o1;
 	}
-	const copy_o2o = o2o; //@deprecated, for old codes...
 
 	//: .debug_level, .logger, .cookie_pack, .cookie_readonly
 	const options = o2o(argv2o(), init_opts);
@@ -45,11 +44,9 @@ module.exports = function(init_opts) {
 	P.all = (a) => Promise.all(a);
 	P.reject = (o) => Promise.reject(o);
 	P.resolve = (o) => Promise.resolve(o);
-
 	const PSTS = (STS, rst, errmsg, errcode) => P({ STS, rst, errmsg, errcode });
-	const POK = (rst) => PSTS('OK', rst);
+	const POK = (rst, errmsg, errcode) => PSTS('OK', rst, errmsg, errcode);
 	const PKO = (rst, errmsg, errcode) => PSTS('KO', rst, errmsg, errcode);
-
 	const isOK = (o) => (o && o.STS == 'OK');
 	function isAllOK(ra){ var b=false; for(var k in ra){ if(!isOK(ra[k]))return false; b=true; } return b; }
 
@@ -147,8 +144,6 @@ module.exports = function(init_opts) {
 		return false;
 	}
 
-	//const stream2bf=(st,cb)=>{var bf = new Buffer(0);mapEvents(st,{error:e=>cb(''+e),data:c=>bf=Buffer.concat([bf, c]),end:()=>cb(bf)})}
-	//const stream2buffer_p = (st) => P( (resolve,reject) => {var bf = new Buffer(0);mapEvents(st,{error:e=>reject(e),data:c=>bf=Buffer.concat([bf, c]),end:()=>cb(bf)})});
 	const stream2buffer_p = (stream) => P( (resolve, reject) =>{
 		var _bf = new Buffer(0);
 		stream.on('data', function(chunk) {
@@ -159,20 +154,6 @@ module.exports = function(init_opts) {
 			reject(err);
 		});
 	});
-	//prev
-	//function stream2buffer_p(stream){
-	//	return P( (resolve, reject) =>{
-	//		//var _bf = new Buffer();
-	//		var _bf = [];
-	//		stream.on('data', function(chunk) {
-	//			_bf.push(chunk);//TODO rt.concat([chunk]);
-	//		}).on('end', function() {
-	//			resolve(Buffer.concat(_bf));
-	//		}).on('error', function(err) {
-	//			reject(err);
-	//		});
-	//	});
-	//}
 
 	const setDebugLevel = d => {
 		if (d > 0) logger.log(module_name + '.setDebugLevel=', d);
@@ -188,7 +169,6 @@ module.exports = function(init_opts) {
 		o2s,
 		s2o,
 		o2o,
-		copy_o2o,
 		stream2buffer_p,
 		base64_encode,
 		base64_decode,
