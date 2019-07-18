@@ -353,6 +353,7 @@ module.exports = function(init_opts) {
 					reqp.headers['Content-Type'] = "application/x-www-form-urlencoded;charset=utf-8";
 
 				reqp.headers['Content-Length'] = Buffer.byteLength(post_s);
+				if(!reqp.method) //update to POST if empty
 				reqp.method = 'POST';
 			}
 			var _accept_language = reqp['Accept-Language'] || "zh-CN,zh;q=0.8,en;q=0.6,zh-TW;q=0.4";
