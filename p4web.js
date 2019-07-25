@@ -435,6 +435,7 @@ module.exports = function(init_opts) {
 				///////////////////////////////////////////////////////// cookie }
 
 				rt['exectime'] = (new Date()).getTime() - tm0;
+				rt.buff = buff;//hook buff back for file download processing
 
 				if (content_encoding == 'gzip') {
 					rt['gz_len'] = Buffer.byteLength(buff);
@@ -458,9 +459,9 @@ module.exports = function(init_opts) {
 						logger.log('DBG', ex);
 						reject(ex);
 					}
-					//if((!body) && buff_s){
-					//	logger.log('DEBUG: web1_q failed to decode',rt['gz_len'],buff_s);
-					//}
+					if((!body) && buff_s){
+						logger.log('DEBUG: web1_p failed to decode',rt['gz_len'],buff);
+					}
 				}
 				else if (content_encoding == 'deflate') {
 					rt['gz_len'] = Buffer.byteLength(buff);
