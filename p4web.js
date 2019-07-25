@@ -164,6 +164,7 @@ module.exports = function(init_opts) {
 	};
 
 	var rt_p_web = {
+		cookie_pack,
 		options,
 		logger,
 		argv2o,
