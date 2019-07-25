@@ -12,16 +12,11 @@ module.exports = function(init_opts) {
 	//const s2o=function(s){try{return JSON.parse(s);}catch(ex){}};//which only accepts {"m":"XXXX"} but fail for parsing like {m:"XXXX"}
 	const s2o = function(s) { try { return (new Function('return ' + s))() } catch (ex) {} }; //NOTES: some env not support new Function
 	function o2o(o1, o2, o3) {
-		if (o3) {
-			for (var k in o3) { o1[o3[k]] = o2[o3[k]] };
-		}
-		else {
-			for (var k in o2) { o1[k] = o2[k] };
-		}
+		if (o3) for (var k in o3) { o1[o3[k]] = o2[o3[k]] }
+		else for (var k in o2) { o1[k] = o2[k] };
 		return o1;
 	}
-
-	//: .debug_level, .logger, .cookie_pack, .cookie_readonly
+	//init_opts: {debug_level, logger, cookie_pack, cookie_readonly}
 	const options = o2o(argv2o(), init_opts);
 
 	var debug_level = options.debug_level || 0;
@@ -37,9 +32,8 @@ module.exports = function(init_opts) {
 	const fs = require('fs');
 	const os = require('os');
 
-	var P = function(o){ //NOTES: don't use arrow func on construtor !
-		return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o);
-	};
+	//NOTES: don't use arrow func on construtor !
+	var P = function(o){ return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o); };
 	P.delay = (timeout) => P(resolve=>setTimeout(()=>resolve(),timeout||1));
 	P.all = (a) => Promise.all(a);
 	P.reject = (o) => Promise.reject(o);
@@ -50,8 +44,7 @@ module.exports = function(init_opts) {
 	const isOK = (o) => (o && o.STS == 'OK');
 	function isAllOK(ra){ var b=false; for(var k in ra){ if(!isOK(ra[k]))return false; b=true; } return b; }
 
-	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0x111110000011111000 or string '1111-11' with predefined name
-	//fmt_a:{'YYYY':'1111',....}
+	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0x111110000011111000 or string '1111-11' with predefined name, fmt_a:{'YYYY':'1111',....}
 	const getTimeStr = (dt, fmt, tz) => (dt = dt || new Date(), (new Date(dt.getTime() + ((tz === null) ? 0 : ((tz || tz === 0) ? tz : (-dt.getTimezoneOffset() / 60))) * 3600 * 1000)).toISOString().replace('T', ' ').substr(0, 19));
 
 	//backup plan if fmt really needs, but it depends on moment-timezone lib
@@ -79,8 +72,8 @@ module.exports = function(init_opts) {
 	var timezoneOffset = () => date().getTimezoneOffset();
 	var timeStamp = ()=> (now()/1000);
 
-	var trycatch = (fn) => {try{ return fn() }catch(ex){ return ex } };
-	var trycatch_p = async(fn) => {try{ return await fn() }catch(ex){ return P.reject(ex) } };
+	var trycatch = (fn,flagIgnoreErr=false) => {try{ return fn() }catch(ex){ return flagIgnoreErr ? null : ex } };
+	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve(null) : P.reject(ex) } };
 	
 	function cookie_s2o(s) {
 		var rt = {};
@@ -206,7 +199,7 @@ module.exports = function(init_opts) {
 		filename: (typeof(__filename) != 'undefined') ? __filename : '???',
 	};
 
-	rt_p_web.build_post = (headers, post_data, post_type) => {
+	rt_p_web.build_post = (headers, post_data, post_type='o2s') => {
 
 		if (!post_data) return null;
 		if (typeof(post_data) == 'string' && post_type != "multipart") return post_data;
@@ -232,15 +225,9 @@ module.exports = function(init_opts) {
 			];
 		}
 
-		if (!post_type) post_type = 'o2s'; //default o2s mode
-
 		switch (post_type) {
-			case 'o2s':
-				return o2s(post_data);
-				break;
-			case 'post':
-				return querystring.stringify(post_data);
-				break;
+			case 'o2s': return o2s(post_data); break;
+			case 'post': return querystring.stringify(post_data); break;
 			case 'form':
 			case 'binary':
 				var crlf = "\r\n",
@@ -268,17 +255,16 @@ module.exports = function(init_opts) {
 
 	var _concur_c = 0; //inner counter...
 	var _concur_max = 9;
-	rt_p_web.concur_timeout = 1111;
+	rt_p_web.concur_timeout = 1111;//
 	rt_p_web.setConcurMax = (m, tmt) => { _concur_max = 1 * m; if (tmt >= 0) rt_p_web.concur_timeout = tmt; };
+
 	var _task_q = [];
-	var tm;
 	var _concur_checking = false; //concur lock...fine for single-thread nodejs ;)
 	var _process_task_q = function() {
 		if (!(_concur_c >= _concur_max))(_task_q.pop() || (() => { _concur_checking = false }))();
 		if (_concur_checking) setTimeout(() => _process_task_q(), rt_p_web.concur_timeout)
 	}
 
-	//NOTES: seems concurrent in macox has strange ssl problem.  will try to improve in future ...
 	//do once:
 	rt_p_web.web1_p = (opts, post_s_or_o, post_type) => P( (resolve, reject)=>{
 		var rt = { STS: 'KO' };
@@ -399,7 +385,7 @@ module.exports = function(init_opts) {
 				}
 			}, timeout_check);
 
-			var tm0 = (new Date()).getTime();
+			var tm0 = now();
 			if (debug_level > 3) {
 				logger.log('DEBUG', 'post_s=', post_s);
 				logger.log('DEBUG', 'reqp=', reqp);
@@ -412,99 +398,100 @@ module.exports = function(init_opts) {
 
 				var content_encoding = resp.headers['content-encoding'];
 
+				var buff;
 				try{
-					var buff = await stream2buffer_p(resp);
-				}catch(err){
-					return reject(err);
-				}
-				rt['statusCode'] = resp.statusCode;
-				var headers = resp.headers || {};
-				rt['headers'] = headers;
+					buff = await stream2buffer_p(resp);
+					rt['statusCode'] = resp.statusCode;
+					var headers = rt.headers = resp.headers || {};
 
-				///////////////////////////////////////////////////////// cookie {
-				var cookie_s_in_header = headers['Cookie'] || "";
-				var headers_set_cookie_a = resp.headers['set-cookie']; //注意它是个数组...
-				var cookies_pack_a = loadCookieFromFile(cookies_pack_id) || {};
-				var _Cookies = cookies_pack_a[_domain] || {};
-				if (headers_set_cookie_a) {
-					var f_update = false;
-					headers_set_cookie_a.forEach(function(headers_set_cookie) {
-						if (debug_level > 3)
-							logger.log('set cookie', headers_set_cookie);
-						o2o(_Cookies, cookie_s2o(headers_set_cookie));
-						f_update = true;
-					});
-					if (f_update) {
-						rt['cookies'] = _Cookies;
-						cookies_pack_a[_domain] = _Cookies;
-						if (cookie_readonly) {}
-						else {
-							saveCookieToFile(cookies_pack_id, cookies_pack_a);
+					///////////////////////////////////////////////////////// cookie {
+					var cookie_s_in_header = headers['Cookie'] || "";
+					var headers_set_cookie_a = resp.headers['set-cookie']; //注意它是个数组...
+					var cookies_pack_a = loadCookieFromFile(cookies_pack_id) || {};
+					var _Cookies = cookies_pack_a[_domain] || {};
+					if (headers_set_cookie_a) {
+						var f_update = false;
+						headers_set_cookie_a.forEach(function(headers_set_cookie) {
+							if (debug_level > 3)
+								logger.log('set cookie', headers_set_cookie);
+							o2o(_Cookies, cookie_s2o(headers_set_cookie));
+							f_update = true;
+						});
+						if (f_update) {
+							rt['cookies'] = _Cookies;
+							cookies_pack_a[_domain] = _Cookies;
+							if (cookie_readonly) {}
+							else {
+								saveCookieToFile(cookies_pack_id, cookies_pack_a);
+							}
 						}
 					}
-				}
-				///////////////////////////////////////////////////////// cookie }
+					///////////////////////////////////////////////////////// cookie }
 
-				rt['exectime'] = (new Date()).getTime() - tm0;
-				rt.buff = buff;//hook buff back for file download processing
+					rt.exectime = now() - tm0;
 
-				if (content_encoding == 'gzip') {
-					rt['gz_len'] = Buffer.byteLength(buff);
-					var buff_s = buff.toString();
-					try {
-						var decoded = zlib.gunzipSync(buff);
-						var body; //= decoded ? decoded.toString() : "";
-						if (_encoding) {
+					rt.buff = buff;
+
+					if (content_encoding == 'gzip') {
+						rt.gz_len = Buffer.byteLength(buff);
+						var buff_s = buff.toString();
+						try {
+							var decoded = zlib.gunzipSync(buff);
+							var body; //= decoded ? decoded.toString() : "";
+							if (_encoding) {
+								var iconv = require('iconv-lite');
+								body = iconv.decode(decoded, _encoding) || "";
+							}
+							else {
+								body = decoded ? decoded.toString() : "";
+							}
+							rt['body'] = body;
+							rt['body_len'] = body.length; //Buffer.byteLength(body);
+							rt.STS = 'OK';
+							resolve(rt);
+						}
+						catch (ex) {
+							logger.log('DBG', ex);
+							reject(ex);
+						}
+						if((!body) && buff_s){
+							logger.log('DEBUG: web1_p failed to decode',rt.gz_len,buff);
+						}
+					}
+					else if (content_encoding == 'deflate') {
+						rt.zip_len = rt.gz_len = Buffer.byteLength(buff);
+						zlib.inflate(buff, function(err, decoded) {
+							var body = decoded ? decoded.toString() : "";
+							rt['body'] = body;
+							rt['body_len'] = body.length; //body?body.length:0;
+							rt.STS = 'OK';
+							resolve(rt);
+						});
+					}
+					else {
+						var buff_s;
+						if (_encoding == 'base64') { //deprecated, for some old interfaces only
+							buff_s = buff.toString('base64') || "";
+						}
+						else if (_encoding) {
 							var iconv = require('iconv-lite');
-							body = iconv.decode(decoded, _encoding) || "";
+							buff_s = iconv.decode(buff, _encoding) || "";
 						}
 						else {
-							body = decoded ? decoded.toString() : "";
+							buff_s = buff.toString();
 						}
-						rt['body'] = body;
-						rt['body_len'] = body.length; //Buffer.byteLength(body);
-						rt.STS = 'OK';
+						rt.body = buff_s;
+						if (!buff_s) {
+							rt.reqp = reqp; //for debug only
+						}
+						else {
+							rt.body_len = buff_s.length;
+							rt.STS = 'OK';
+						}
 						resolve(rt);
 					}
-					catch (ex) {
-						logger.log('DBG', ex);
-						reject(ex);
-					}
-					if((!body) && buff_s){
-						logger.log('DEBUG: web1_p failed to decode',rt['gz_len'],buff);
-					}
-				}
-				else if (content_encoding == 'deflate') {
-					rt['gz_len'] = Buffer.byteLength(buff);
-					zlib.inflate(buff, function(err, decoded) {
-						var body = decoded ? decoded.toString() : "";
-						rt['body'] = body;
-						rt['body_len'] = body.length; //body?body.length:0;
-						rt.STS = 'OK';
-						resolve(rt);
-					});
-				}
-				else {
-					var buff_s;
-					if (_encoding == 'base64') { //deprecated, for some old interfaces
-						buff_s = buff.toString('base64') || "";
-					}
-					else if (_encoding) {
-						var iconv = require('iconv-lite');
-						buff_s = iconv.decode(buff, _encoding) || "";
-					}
-					else {
-						buff_s = buff.toString();
-					}
-					rt.body = buff_s;
-					if (!buff_s) {
-						rt.reqp = reqp; //for debug only
-					}
-					else {
-						rt['body_len'] = buff_s.length;
-						rt.STS = 'OK';
-					}
-					resolve(rt);
+				}catch(err){
+					reject(err);
 				}
 				clearTimeout(tm_check);
 			}).on('error', err => {
@@ -522,8 +509,8 @@ module.exports = function(init_opts) {
 			rt.errmsg = '' + ex;
 			return resolve(rt);
 		}
-	})
-	;//web_p
+	})//web1_p
+	;
 
 	rt_p_web.web_p = (opts, post_s_or_o, post_type) => P( (resolve, reject) =>{
 		//enqueue
