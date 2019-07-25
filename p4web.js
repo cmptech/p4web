@@ -72,6 +72,16 @@ module.exports = function(init_opts) {
 	//function cookie_o2s(o){ return querystring.stringify(o,';'); }
 	const cookie_o2s = o => querystring.stringify(o, ';');
 
+	var doNothing = (p)=>(p||{});
+
+	var date = () => new Date();
+	var now = () => date().getTime();
+	var timezoneOffset = () => date().getTimezoneOffset();
+	var timeStamp = ()=> (now()/1000);
+
+	var trycatch = (fn) => {try{ return fn() }catch(ex){ return ex } };
+	var trycatch_p = async(fn) => {try{ return await fn() }catch(ex){ return P.reject(ex) } };
+	
 	function cookie_s2o(s) {
 		var rt = {};
 		if (s && s != "") {
@@ -192,6 +202,7 @@ module.exports = function(init_opts) {
 		http,
 		net,
 		os,
+		doNothing,date,now,timezoneOffset,timeStamp,trycatch,trycatch_p,
 		filename: (typeof(__filename) != 'undefined') ? __filename : '???',
 	};
 
