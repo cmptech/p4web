@@ -3,9 +3,9 @@ var module_name = 'p4web';// p4web - Promise For Web
 module.exports = function(init_opts) {
 
 	const getRegExpMatch = (re,s) => { var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" };
-	
+
 	const isEmpty=(o,i)=>{for(i in o){return!1}return!0}
-	
+
 	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {});
 
 	const o2s = function(o) { try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } };
@@ -16,21 +16,11 @@ module.exports = function(init_opts) {
 		else for (var k in o2) { o1[k] = o2[k] };
 		return o1;
 	}
-	//init_opts: {debug_level, logger, cookie_pack, cookie_readonly}
 	const options = o2o(argv2o(), init_opts);
 
-	var debug_level = options.debug_level || 0;
+	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false} = options;
 
-	const logger = options.logger || console;
-
-	const http = require('http');
-	const https = require('https');
-	const net = require('net');
-	const url = require('url');
-	const zlib = require('zlib');
-	const querystring = require('querystring');
-	const fs = require('fs');
-	const os = require('os');
+	const libs = {};['http','https','net','url','zlib','querystring','fs','os'].map((v,k)=>(libs[v]=require(v)));
 
 	//NOTES: don't use arrow func on construtor !
 	var P = function(o){ return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o); };
@@ -44,15 +34,23 @@ module.exports = function(init_opts) {
 	const isOK = (o) => (o && o.STS == 'OK');
 	function isAllOK(ra){ var b=false; for(var k in ra){ if(!isOK(ra[k]))return false; b=true; } return b; }
 
-	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0x111110000011111000 or string '1111-11' with predefined name, fmt_a:{'YYYY':'1111',....}
+	var date = (dt) => (dt || new Date());
+	var getTime = (dt) => date(dt).getTime();
+	var timezoneOffset = (dt) => date(dt).getTimezoneOffset();
+	var timeStamp = (dt)=> (getTime(dt)/1000);
+	var now = () => getTime();
+	
+	//YYYY-MM-DD HH:mm:ss
+	//YYYY-MM-DD HH:mm:ss.SSS
+	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0b111110000011111000 or string '1111-11' with predefined name, fmt_a:{'YYYY':'1111',....}
 	const getTimeStr = (dt, fmt, tz) => (dt = dt || new Date(), (new Date(dt.getTime() + ((tz === null) ? 0 : ((tz || tz === 0) ? tz : (-dt.getTimezoneOffset() / 60))) * 3600 * 1000)).toISOString().replace('T', ' ').substr(0, 19));
 
-	//backup plan if fmt really needs, but it depends on moment-timezone lib
-	var moment = null; //require('moment-timezone');//for datetime
+	//backup plan if fmt really needed (but it depends on moment-timezone)
+	var moment;
 	const getTimeStr2 = function(dt, fmt) {
 		if (!moment) {
 			moment = require('moment-timezone');
-			moment.tz.setDefault("Asia/Hong_Kong");
+			moment.tz.setDefault("Asia/Beijing");
 		}
 		if (!dt) dt = new Date();
 		if (!fmt) fmt = 'YYYY-MM-DD HH:mm:ss.SSS';
@@ -63,18 +61,13 @@ module.exports = function(init_opts) {
 	const base64_decode = t => Buffer.from(t, 'base64').toString();
 
 	//function cookie_o2s(o){ return querystring.stringify(o,';'); }
-	const cookie_o2s = o => querystring.stringify(o, ';');
+	const cookie_o2s = o => libs.querystring.stringify(o, ';');
 
 	var doNothing = (p)=>(p||{});
 
-	var date = () => new Date();
-	var now = () => date().getTime();
-	var timezoneOffset = () => date().getTimezoneOffset();
-	var timeStamp = ()=> (now()/1000);
-
 	var trycatch = (fn,flagIgnoreErr=false) => {try{ return fn() }catch(ex){ return flagIgnoreErr ? null : ex } };
 	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve(null) : P.reject(ex) } };
-	
+
 	function cookie_s2o(s) {
 		var rt = {};
 		if (s && s != "") {
@@ -109,7 +102,7 @@ module.exports = function(init_opts) {
 		if (fn && fn.indexOf('.raw') >= 0) return loadCookieFromFileRaw(fn);
 		var rt = {};
 		try {
-			rt = s2o(fs.readFileSync(fn + ".cookie", 'utf-8'));
+			rt = s2o(libs.fs.readFileSync(fn + ".cookie", 'utf-8'));
 		}
 		catch (ex) {
 			if (debug_level > 3) logger.log("readFileSync tmp " + fn + " .txt ex=", ex);
@@ -120,7 +113,7 @@ module.exports = function(init_opts) {
 	function loadCookieFromFileRaw(fn) {
 		var rt = "";
 		try {
-			rt = fs.readFileSync(fn + ".cookie", 'utf-8');
+			rt = libs.fs.readFileSync(fn + ".cookie", 'utf-8');
 		}
 		catch (ex) {
 			if (debug_level > 3) logger.log("readFileSync tmp " + fn + " .txt ex=", ex);
@@ -139,7 +132,7 @@ module.exports = function(init_opts) {
 
 	function saveCookieToFileRaw(fn, ck) {
 		try {
-			return fs.writeFileSync(fn + ".cookie", ck, 'utf-8');
+			return libs.fs.writeFileSync(fn + ".cookie", ck, 'utf-8');
 		}
 		catch (ex) {
 			if (debug_level > 3) logger.log("writeFileSync tmp " + fn + " .txt ex=", ex);
@@ -148,7 +141,8 @@ module.exports = function(init_opts) {
 	}
 
 	const stream2buffer_p = (stream) => P( (resolve, reject) =>{
-		var _bf = new Buffer(0);
+		//var _bf = new Buffer(0);
+		var _bf = Buffer.alloc(0);
 		stream.on('data', function(chunk) {
 			_bf = Buffer.concat([_bf,chunk]);
 		}).on('end', function() {
@@ -163,7 +157,7 @@ module.exports = function(init_opts) {
 		debug_level = d;
 	};
 
-	var rt_p_web = {
+	var rt_p_web = o2o(libs,{
 		cookie_pack,
 		options,
 		logger,
@@ -190,15 +184,9 @@ module.exports = function(init_opts) {
 		saveCookieToFile,
 		loadCookieFromFileRaw,
 		saveCookieToFileRaw,
-		fs,
-		url,
-		https,
-		http,
-		net,
-		os,
-		doNothing,date,now,timezoneOffset,timeStamp,trycatch,trycatch_p,
+		doNothing,date,now,getTime,timezoneOffset,timeStamp,trycatch,trycatch_p,
 		filename: (typeof(__filename) != 'undefined') ? __filename : '???',
-	};
+	});
 
 	rt_p_web.build_post = (headers, post_data, post_type='o2s') => {
 
@@ -228,7 +216,7 @@ module.exports = function(init_opts) {
 
 		switch (post_type) {
 			case 'o2s': return o2s(post_data); break;
-			case 'post': return querystring.stringify(post_data); break;
+			case 'post': return libs.querystring.stringify(post_data); break;
 			case 'form':
 			case 'binary':
 				var crlf = "\r\n",
@@ -245,10 +233,10 @@ module.exports = function(init_opts) {
 				return Buffer.concat(s_a);
 			case 'multipart':
 				var reg = /--(.*?)\r/;
-				var rt = reg.exec(post_data);
-		
-				headers['Content-Type'] =  'multipart/form-data; boundary='+rt[1];
-			  return post_data;
+				var mmm = reg.exec(post_data);
+				if(mmm && mmm[1])
+					headers['Content-Type'] =  'multipart/form-data; boundary='+mmm[1];
+				return post_data;
 			default:
 				throw new Error('unsupport post type ' + post_type);
 		}
@@ -267,24 +255,24 @@ module.exports = function(init_opts) {
 	}
 
 	//do once:
-	rt_p_web.web1_p = (opts, post_s_or_o, post_type) => P( (resolve, reject)=>{
+	rt_p_web.web1_p = (call_opts, post_s_or_o, post_type) => P( (resolve, reject)=>{
 		var rt = { STS: 'KO' };
 		try {
-			rt.opts = opts;
-			var reqp = o2o({}, (typeof(opts) == 'string') ? url.parse(opts) : opts);
+			rt.call_opts = call_opts;
+			var reqp = o2o({}, (typeof(call_opts) == 'string') ? libs.url.parse(call_opts) : call_opts);
 
 			if(!reqp.agent && options.agent) reqp.agent = options.agent;//using default agent if any.
 
 			var _url = reqp.url;
 			var _hostname = reqp.hostname;
 			if (!_hostname) {
-				o2o(reqp, url.parse(_url));
+				o2o(reqp, libs.url.parse(_url));
 				_hostname = reqp.hostname;
 			}
 			var web;
-			if (reqp.protocol == 'https:') web = https;
-			else if (reqp.protocol == 'http:') web = http;
-			else web = net;
+			if (reqp.protocol == 'https:') web = libs.https;
+			else if (reqp.protocol == 'http:') web = libs.http;
+			else web = libs.net;
 
 			if (!reqp.headers) reqp.headers = {};
 			if (!reqp.headers['user-agent']) reqp.headers['user-agent'] = "Mozilla/5.0 (Windows NT 5.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.19 Safari/537.36";
@@ -294,8 +282,6 @@ module.exports = function(init_opts) {
 			var cookies_pack_id = reqp.cookie_pack || options.cookie_pack || (e => { throw new Error(e) })(module_name + '.cookie_pack is mandatory now because share cookie file not good.');
 			var cookies_pack_a = reqp.resetCookie ? {} : (loadCookieFromFile(cookies_pack_id) || {});
 			var req_cookie_a = cookies_pack_a[_domain] || {};
-
-			var cookie_readonly = options.cookie_readonly || false;
 
 			//insert/update
 			if (reqp.headers['Cookie']) {
@@ -324,7 +310,7 @@ module.exports = function(init_opts) {
 				}
 			}
 
-			var req_cookie_s = querystring.stringify(req_cookie_a, ';');
+			var req_cookie_s = libs.querystring.stringify(req_cookie_a, ';');
 			if (debug_level > 3) {
 				logger.log('req_cookie_a=', req_cookie_a);
 				logger.log('req_cookie_s=', req_cookie_s);
@@ -338,8 +324,8 @@ module.exports = function(init_opts) {
 				saveCookieToFile(cookies_pack_id, cookies_pack_a);
 			}
 
-			rt['req_cookie'] = req_cookie_a;
-			rt['req_cookie_s'] = req_cookie_s;
+			rt.req_cookie = req_cookie_a;
+			rt.req_cookie_s = req_cookie_s;
 			//////////////////////////////////////////////// handle cookies before send }
 
 			var post_s = reqp.post_s || rt_p_web.build_post(reqp.headers, post_s_or_o, post_type);
@@ -352,7 +338,7 @@ module.exports = function(init_opts) {
 
 				reqp.headers['Content-Length'] = Buffer.byteLength(post_s);
 				if(!reqp.method) //update to POST if empty
-				reqp.method = 'POST';
+					reqp.method = 'POST';
 			}
 			var _accept_language = reqp['Accept-Language'] || "zh-CN,zh;q=0.8,en;q=0.6,zh-TW;q=0.4";
 			reqp.headers['Accept-Language'] = _accept_language;
@@ -361,7 +347,7 @@ module.exports = function(init_opts) {
 			if (!reqp.headers['Accept'])
 				reqp.headers['Accept'] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
 
-			//"gzip,deflate,sdch";
+			//@ref https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding
 			var _accept_encoding = reqp['Accept-Encoding'] || "gzip";
 			reqp.headers['Accept-Encoding'] = _accept_encoding;
 
@@ -394,23 +380,17 @@ module.exports = function(init_opts) {
 			var req = (web.request || web.createConnection)(reqp, async(resp) => {
 				var _encoding = reqp.encoding || '';
 
-				if(!resp)resp={};
-				if(!resp.headers)resp.headers={};
-
-				var content_encoding = resp.headers['content-encoding'];
-
 				var buff;
 				try{
-					buff = await stream2buffer_p(resp);
-					rt['statusCode'] = resp.statusCode;
-					var headers = rt.headers = resp.headers || {};
+					rt.statusCode = resp.statusCode;
+					var resp_headers = rt.headers = resp.headers || {};
+					var content_encoding = resp_headers['content-encoding'];
 
 					///////////////////////////////////////////////////////// cookie {
-					var cookie_s_in_header = headers['Cookie'] || "";
-					var headers_set_cookie_a = resp.headers['set-cookie']; //注意它是个数组...
+					var headers_set_cookie_a = resp_headers['set-cookie'] || []; 
 					var cookies_pack_a = loadCookieFromFile(cookies_pack_id) || {};
 					var _Cookies = cookies_pack_a[_domain] || {};
-					if (headers_set_cookie_a) {
+					if (headers_set_cookie_a && headers_set_cookie_a.length>0) {
 						var f_update = false;
 						headers_set_cookie_a.forEach(function(headers_set_cookie) {
 							if (debug_level > 3)
@@ -419,9 +399,9 @@ module.exports = function(init_opts) {
 							f_update = true;
 						});
 						if (f_update) {
-							rt['cookies'] = _Cookies;
+							rt.cookies = _Cookies;
 							cookies_pack_a[_domain] = _Cookies;
-							if (cookie_readonly) {}
+							if (cookie_readonly!=false) {}
 							else {
 								saveCookieToFile(cookies_pack_id, cookies_pack_a);
 							}
@@ -429,67 +409,75 @@ module.exports = function(init_opts) {
 					}
 					///////////////////////////////////////////////////////// cookie }
 
-					rt.exectime = now() - tm0;
+					if(call_opts.return_raw==true){
+						rt.resp = resp;
+						rt.STS = 'OK';
+						resolve(rt);
+					}else{
 
-					rt.buff = buff;
+						buff = await stream2buffer_p(resp);
+						rt.exectime = now() - tm0;
 
-					if (content_encoding == 'gzip') {
-						rt.gz_len = Buffer.byteLength(buff);
-						var buff_s = buff.toString();
-						try {
-							var decoded = zlib.gunzipSync(buff);
-							var body; //= decoded ? decoded.toString() : "";
-							if (_encoding) {
+						rt.buff = buff;
+
+						if (content_encoding == 'gzip') {
+							rt.gz_len = Buffer.byteLength(buff);
+							var buff_s = buff.toString();
+							try {
+								var decoded = libs.zlib.gunzipSync(buff);
+								var body; //= decoded ? decoded.toString() : "";
+								if (_encoding) {
+									var iconv = require('iconv-lite');
+									body = iconv.decode(decoded, _encoding) || "";
+								}
+								else {
+									body = decoded ? decoded.toString() : "";
+								}
+								rt.body = body;
+								rt.body_len = body.length; //Buffer.byteLength(body);
+								rt.STS = 'OK';
+								resolve(rt);
+							}
+							catch (ex) {
+								logger.log('DBG GZ ERR', ex);
+								reject(ex);
+							}
+							if((!body) && buff_s){
+								logger.log('DEBUG: web1_p failed to decode',rt.gz_len,buff);
+							}
+						}
+						else if (content_encoding == 'deflate') {
+							rt.zip_len = rt.gz_len = Buffer.byteLength(buff);
+							libs.zlib.inflate(buff, function(err, decoded) {
+								var body = decoded ? decoded.toString() : "";
+								rt.body = body;
+								rt.body_len = body.length; //body?body.length:0;
+								rt.STS = 'OK';
+								resolve(rt);
+							});
+						}
+						else {
+							var buff_s;
+							if (_encoding == 'base64') { //deprecated, for some old interfaces only
+								buff_s = buff.toString('base64') || "";
+							}
+							else if (_encoding) {
 								var iconv = require('iconv-lite');
-								body = iconv.decode(decoded, _encoding) || "";
+								buff_s = iconv.decode(buff, _encoding) || "";
 							}
 							else {
-								body = decoded ? decoded.toString() : "";
+								buff_s = buff.toString();
 							}
-							rt['body'] = body;
-							rt['body_len'] = body.length; //Buffer.byteLength(body);
-							rt.STS = 'OK';
+							rt.body = buff_s;
+							if (!buff_s) {
+								rt.reqp = reqp; //for debug only
+							}
+							else {
+								rt.body_len = buff_s.length;
+								rt.STS = 'OK';
+							}
 							resolve(rt);
 						}
-						catch (ex) {
-							logger.log('DBG', ex);
-							reject(ex);
-						}
-						if((!body) && buff_s){
-							logger.log('DEBUG: web1_p failed to decode',rt.gz_len,buff);
-						}
-					}
-					else if (content_encoding == 'deflate') {
-						rt.zip_len = rt.gz_len = Buffer.byteLength(buff);
-						zlib.inflate(buff, function(err, decoded) {
-							var body = decoded ? decoded.toString() : "";
-							rt['body'] = body;
-							rt['body_len'] = body.length; //body?body.length:0;
-							rt.STS = 'OK';
-							resolve(rt);
-						});
-					}
-					else {
-						var buff_s;
-						if (_encoding == 'base64') { //deprecated, for some old interfaces only
-							buff_s = buff.toString('base64') || "";
-						}
-						else if (_encoding) {
-							var iconv = require('iconv-lite');
-							buff_s = iconv.decode(buff, _encoding) || "";
-						}
-						else {
-							buff_s = buff.toString();
-						}
-						rt.body = buff_s;
-						if (!buff_s) {
-							rt.reqp = reqp; //for debug only
-						}
-						else {
-							rt.body_len = buff_s.length;
-							rt.STS = 'OK';
-						}
-						resolve(rt);
 					}
 				}catch(err){
 					reject(err);
@@ -508,15 +496,15 @@ module.exports = function(init_opts) {
 		}
 		catch (ex) {
 			rt.errmsg = '' + ex;
-			return resolve(rt);
+			resolve(rt);
 		}
 	})//web1_p
 	;
 
-	rt_p_web.web_p = (opts, post_s_or_o, post_type) => P( (resolve, reject) =>{
+	rt_p_web.web_p = (call_opts, post_s_or_o, post_type) => P( (resolve, reject) =>{
 		//enqueue
 		_task_q.push(() => (++_concur_c,
-			rt_p_web.web1_p(opts, post_s_or_o, post_type)
+			rt_p_web.web1_p(call_opts, post_s_or_o, post_type)
 			.catch(err => err)
 			.then(rst => (--_concur_c, resolve(rst)))
 		));
