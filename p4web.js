@@ -74,8 +74,8 @@ module.exports = function(init_opts) {
 
 	var doNothing = (p)=>(p||{});
 
-	var trycatch = (fn,flagIgnoreErr=false) => {try{ return fn() }catch(ex){ return flagIgnoreErr ? null : ex } };
-	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve(null) : P.reject(ex) } };
+	var trycatch = (fn,flagIgnoreErr=false) => {try{ return fn() }catch(ex){ return flagIgnoreErr ? '': ex } };
+	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve('') : P.reject(ex) } };
 
 	function cookie_s2o(s) {
 		var rt = {};
@@ -107,47 +107,17 @@ module.exports = function(init_opts) {
 		return domain;
 	}
 
-	function loadCookieFromFile(fn) {
-		if (fn && fn.indexOf('.raw') >= 0) return loadCookieFromFileRaw(fn);
-		var rt = {};
-		try {
-			rt = s2o(libs.fs.readFileSync(fn + ".cookie", 'utf-8'));
-		}
-		catch (ex) {
-			if (debug_level > 3) logger.log("readFileSync tmp " + fn + " .txt ex=", ex);
-		}
-		return rt;
-	}
-
-	function loadCookieFromFileRaw(fn) {
-		var rt = "";
-		try {
-			rt = libs.fs.readFileSync(fn + ".cookie", 'utf-8');
-		}
-		catch (ex) {
-			if (debug_level > 3) logger.log("readFileSync tmp " + fn + " .txt ex=", ex);
-		}
-		return rt;
-	}
-
-	function saveCookieToFile(fn, ck) {
-		if (fn && fn.indexOf('.raw') >= 0) {
-			return saveCookieToFileRaw(fn, ck);
-		}
-		else {
-			return saveCookieToFileRaw(fn, o2s(ck));
-		}
-	}
-
-	function saveCookieToFileRaw(fn, ck) {
-		try {
-			return libs.fs.writeFileSync(fn + ".cookie", ck, 'utf-8');
-		}
-		catch (ex) {
-			if (debug_level > 3) logger.log("writeFileSync tmp " + fn + " .txt ex=", ex);
-		}
-		return false;
-	}
+	//raw
+	var load_raw = (fn,flagIgnoreErr=true) => trycatch(()=>libs.fs.readFileSync(fn),flagIgnoreErr);
+	var save_raw = (fn,s,flagIgnoreErr=true) => trycatch(()=>libs.fs.writeFileSync(fn,(!s||typeof(s)=='string')?s:o2s(s),'utf-8'),flagIgnoreErr);
+	//s2o/o2s
+	var load = (fn) => s2o(load_raw(fn));
+	var save = (fn,o) => save_raw(fn,o2s(o));
+	//old:
+	var loadCookieFromFileRaw = (fn) => load_raw(fn+'.cookie');
+	var loadCookieFromFile = (fn) => (fn && fn.indexOf('.raw') >= 0) ? loadCookieFromFileRaw(fn) : s2o(load_raw(fn+'.cookie'));
+	var saveCookieToFileRaw = (fn, ck) => save_raw(fn+'.cookie',ck);
+	var saveCookieToFile = (fn, ck) => saveCookieToFileRaw(fn, (fn && fn.indexOf('.raw') >= 0) ? ck : o2s(ck));
 
 	const stream2buffer_p = (stream) => P( (resolve, reject) =>{
 		//var _bf = new Buffer(0);
@@ -172,13 +142,13 @@ module.exports = function(init_opts) {
 		logger,
 		argv2o,
 		getRegExpMatch,
-		isEmpty,
 		o2s,
 		s2o,
 		o2o,
 		stream2buffer_p,
 		base64_encode,
 		base64_decode,
+
 		P,
 		PSTS,
 		POK,
@@ -187,13 +157,19 @@ module.exports = function(init_opts) {
 		getDomain,
 		getTimeStr,
 		getTimeStr2,
+		isEmpty,
 		isOK,
 		isAllOK,
+
+		load_raw,save_raw,
+		load,save,
 		loadCookieFromFile,
 		saveCookieToFile,
 		loadCookieFromFileRaw,
 		saveCookieToFileRaw,
+
 		doNothing,date,now,getTime,timezoneOffset,timeStamp,trycatch,trycatch_p,
+
 		filename: (typeof(__filename) != 'undefined') ? __filename : '???',
 	});
 
