@@ -18,10 +18,19 @@ module.exports = function(init_opts) {
 	}
 	const options = o2o(argv2o(), init_opts);
 
-	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false} = options;
+	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false,
+		agent, proxy_server,
+	} = options;
 
 	const libs = {};['http','https','net','url','zlib','querystring','fs','os'].map((v,k)=>(libs[v]=require(v)));
 
+	if(!agent && proxy_server){
+		var proxy_opts = libs.url.parse(proxy_server);
+		agent = options.agent = new require(
+			((['http:','https:'].indexOf(proxy_opts.protocol)>=0)?'https':'socks')+'-proxy-agent'
+		)(proxy_opts);
+	}
+	
 	//NOTES: don't use arrow func on construtor !
 	var P = function(o){ return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o); };
 	P.delay = (timeout) => P(resolve=>setTimeout(()=>resolve(),timeout||1));
