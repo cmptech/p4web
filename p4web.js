@@ -66,6 +66,16 @@ module.exports = function(init_opts) {
 		return moment(dt).format(fmt);
 	};
 
+	var uuid= () => {
+		var d = getTime();
+		var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+			var r = (d + Math.random() * 16) % 16 | 0;
+			d = Math.floor(d / 16);
+			return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+		});
+		return uuid;
+	};
+	
 	const base64_encode = t => Buffer.from(t).toString('base64');
 	const base64_decode = t => Buffer.from(t, 'base64').toString();
 
@@ -146,6 +156,7 @@ module.exports = function(init_opts) {
 		s2o,
 		o2o,
 		stream2buffer_p,
+		uuid,
 		base64_encode,
 		base64_decode,
 
