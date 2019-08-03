@@ -1,13 +1,7 @@
-var module_name = 'p4web';// p4web - Promise For Web
-
 module.exports = function(init_opts) {
-
 	const getRegExpMatch = (re,s) => { var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" };
-
 	const isEmpty=(o,i)=>{for(i in o){return!1}return!0}
-
 	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {});
-
 	const o2s = function(o) { try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } };
 	//const s2o=function(s){try{return JSON.parse(s);}catch(ex){}};//which only accepts {"m":"XXXX"} but fail for parsing like {m:"XXXX"}
 	const s2o = function(s) { try { return (new Function('return ' + s))() } catch (ex) {} }; //NOTES: some env not support new Function
@@ -23,7 +17,6 @@ module.exports = function(init_opts) {
 	} = options;
 
 	const build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt);
-	//const libs = {};['http','https','net','url','zlib','querystring','fs','os'].map((v,k)=>(libs[v]=require(v)));
 	const libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
 
 	if(!agent && proxy_server){
@@ -32,10 +25,8 @@ module.exports = function(init_opts) {
 			((['http:','https:'].indexOf(proxy_opts.protocol)>=0)?'https':'socks')+'-proxy-agent'
 		)(proxy_opts);
 	}
-
-	//NOTES: don't use arrow func on construtor !
 	var P = function(o){ return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o); };
-	P.delay = (timeout) => P(resolve=>setTimeout(()=>resolve(),timeout||1));
+	P.delay = (timeout) => P(resolve=>setTimeout(resolve,timeout||1));
 	P.all = (a) => Promise.all(a);
 	P.reject = (o) => Promise.reject(o);
 	P.resolve = (o) => Promise.resolve(o);
@@ -56,12 +47,11 @@ module.exports = function(init_opts) {
 	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0b111110000011111000 or string '1111-11' with predefined name, fmt_a:{'YYYY':'1111',....}
 	const getTimeStr = (dt, fmt, tz) => (dt = dt || new Date(), (new Date(dt.getTime() + ((tz === null) ? 0 : ((tz || tz === 0) ? tz : (-dt.getTimezoneOffset() / 60))) * 3600 * 1000)).toISOString().replace('T', ' ').substr(0, 19));
 
-	//backup plan if fmt really needed (but it depends on moment-timezone)
 	var moment;
-	const getTimeStr2 = function(dt, fmt) {
+	const getTimeStr2 = function(dt, fmt, tz='Asia/Beijing') {
 		if (!moment) {
 			moment = require('moment-timezone');
-			moment.tz.setDefault("Asia/Beijing");
+			moment.tz.setDefault(tz);
 		}
 		if (!dt) dt = new Date();
 		if (!fmt) fmt = 'YYYY-MM-DD HH:mm:ss.SSS';
@@ -70,18 +60,16 @@ module.exports = function(init_opts) {
 
 	var uuid= () => {
 		var d = getTime();
-		var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
 			var r = (d + Math.random() * 16) % 16 | 0;
 			d = Math.floor(d / 16);
 			return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
 		});
-		return uuid;
 	};
 
 	const base64_encode = t => Buffer.from(t).toString('base64');
 	const base64_decode = t => Buffer.from(t, 'base64').toString();
 
-	//function cookie_o2s(o){ return querystring.stringify(o,';'); }
 	const cookie_o2s = o => libs.querystring.stringify(o, ';');
 
 	var doNothing = (p)=>(p||{});
@@ -119,10 +107,8 @@ module.exports = function(init_opts) {
 		return domain;
 	}
 
-	//raw
 	var load_raw = (fn,flagIgnoreErr=true) => trycatch(()=>libs.fs.readFileSync(fn),flagIgnoreErr);
 	var save_raw = (fn,s,flagIgnoreErr=true) => trycatch(()=>libs.fs.writeFileSync(fn,(!s||typeof(s)=='string')?s:o2s(s),'utf-8'),flagIgnoreErr);
-	//s2o/o2s
 	var load = (fn) => s2o(load_raw(fn));
 	var save = (fn,o) => save_raw(fn,o2s(o));
 	//old:
@@ -142,10 +128,7 @@ module.exports = function(init_opts) {
 		});
 	});
 
-	const setDebugLevel = d => {
-		if (d > 0) logger.log(module_name + '.setDebugLevel=', d);
-		debug_level = d;
-	};
+	const setDebugLevel = d => { if (d > 0) logger.log('.setDebugLevel=', d); debug_level = d; };
 
 	var rt_p_web = o2o(libs,{
 		build_libs,
@@ -161,7 +144,6 @@ module.exports = function(init_opts) {
 		uuid,
 		base64_encode,
 		base64_decode,
-
 		P,
 		PSTS,
 		POK,
@@ -277,7 +259,7 @@ module.exports = function(init_opts) {
 
 			//////////////////////////////////////////////// handle cookies before send {
 			var _domain = getDomain(_hostname);
-			var cookies_pack_id = reqp.cookie_pack || options.cookie_pack || (e => { throw new Error(e) })(module_name + '.cookie_pack is mandatory now because share cookie file not good.');
+			var cookies_pack_id = reqp.cookie_pack || options.cookie_pack || (e => { throw new Error(e) })('.cookie_pack is mandatory now because share cookie file not good.');
 			var cookies_pack_a = reqp.resetCookie ? {} : (loadCookieFromFile(cookies_pack_id) || {});
 			var req_cookie_a = cookies_pack_a[_domain] || {};
 
