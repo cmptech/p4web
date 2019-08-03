@@ -22,7 +22,9 @@ module.exports = function(init_opts) {
 		agent, proxy_server,
 	} = options;
 
-	const libs = {};['http','https','net','url','zlib','querystring','fs','os'].map((v,k)=>(libs[v]=require(v)));
+	const build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt);
+	//const libs = {};['http','https','net','url','zlib','querystring','fs','os'].map((v,k)=>(libs[v]=require(v)));
+	const libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
 
 	if(!agent && proxy_server){
 		var proxy_opts = libs.url.parse(proxy_server);
@@ -30,7 +32,7 @@ module.exports = function(init_opts) {
 			((['http:','https:'].indexOf(proxy_opts.protocol)>=0)?'https':'socks')+'-proxy-agent'
 		)(proxy_opts);
 	}
-	
+
 	//NOTES: don't use arrow func on construtor !
 	var P = function(o){ return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o); };
 	P.delay = (timeout) => P(resolve=>setTimeout(()=>resolve(),timeout||1));
@@ -48,7 +50,7 @@ module.exports = function(init_opts) {
 	var timezoneOffset = (dt) => date(dt).getTimezoneOffset();
 	var timeStamp = (dt)=> (getTime(dt)/1000);
 	var now = () => getTime();
-	
+
 	//YYYY-MM-DD HH:mm:ss
 	//YYYY-MM-DD HH:mm:ss.SSS
 	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0b111110000011111000 or string '1111-11' with predefined name, fmt_a:{'YYYY':'1111',....}
@@ -75,7 +77,7 @@ module.exports = function(init_opts) {
 		});
 		return uuid;
 	};
-	
+
 	const base64_encode = t => Buffer.from(t).toString('base64');
 	const base64_decode = t => Buffer.from(t, 'base64').toString();
 
@@ -130,7 +132,6 @@ module.exports = function(init_opts) {
 	var saveCookieToFile = (fn, ck) => saveCookieToFileRaw(fn, (fn && fn.indexOf('.raw') >= 0) ? ck : o2s(ck));
 
 	const stream2buffer_p = (stream) => P( (resolve, reject) =>{
-		//var _bf = new Buffer(0);
 		var _bf = Buffer.alloc(0);
 		stream.on('data', function(chunk) {
 			_bf = Buffer.concat([_bf,chunk]);
@@ -147,6 +148,7 @@ module.exports = function(init_opts) {
 	};
 
 	var rt_p_web = o2o(libs,{
+		build_libs,
 		cookie_pack,
 		options,
 		logger,
@@ -282,17 +284,10 @@ module.exports = function(init_opts) {
 			//insert/update
 			if (reqp.headers['Cookie']) {
 				var req_cookies_s = reqp.headers['Cookie'];
-				if (req_cookies_s) {
-					o2o(req_cookie_a, cookie_s2o(req_cookies_s));
-				}
+				if (req_cookies_s) { o2o(req_cookie_a, cookie_s2o(req_cookies_s)); }
 			}
-			if (reqp.cookies_full) { //full replacement
-				req_cookie_a = reqp.cookies_full;
-			}
-			else
-				if (reqp.cookies_full_s) { //full replace with str
-					req_cookie_a = cookie_s2o(reqp.cookies_full_s);
-				}
+			if (reqp.cookies_full) { req_cookie_a = reqp.cookies_full; }
+			else if (reqp.cookies_full_s) { req_cookie_a = cookie_s2o(reqp.cookies_full_s); }
 
 			if (reqp.cookies_add) { //add
 				for (var k in reqp.cookies_add) {
@@ -316,9 +311,7 @@ module.exports = function(init_opts) {
 			cookies_pack_a[_domain] = req_cookie_a;
 
 			if (cookie_readonly) {}
-			else {
-				saveCookieToFile(cookies_pack_id, cookies_pack_a);
-			}
+			else { saveCookieToFile(cookies_pack_id, cookies_pack_a); }
 
 			rt.req_cookie = req_cookie_a;
 			rt.req_cookie_s = req_cookie_s;
@@ -348,18 +341,10 @@ module.exports = function(init_opts) {
 			reqp.headers['Accept-Encoding'] = _accept_encoding;
 
 			if (!reqp.headers['Referer']) {
-				if (reqp.referer_s) {
-					reqp.headers['Referer'] = reqp.referer_s;
-				}
-				else if (reqp.referer) {
-					reqp.headers['Referer'] = reqp.referer;
-				}
-				else if (reqp.Referer) {
-					reqp.headers['Referer'] = reqp.Referer;
-				}
-				else{
-					reqp.headers['Referer'] = reqp.href;//TODO...
-				}
+				if (reqp.referer_s) { reqp.headers['Referer'] = reqp.referer_s; }
+				else if (reqp.referer) { reqp.headers['Referer'] = reqp.referer; }
+				else if (reqp.Referer) { reqp.headers['Referer'] = reqp.Referer; }
+				else{ reqp.headers['Referer'] = reqp.href; }
 			}
 			var timeout_check = reqp.timeout_check || 30000;
 			var tm_check = setTimeout(() => {
@@ -398,37 +383,29 @@ module.exports = function(init_opts) {
 							rt.cookies = _Cookies;
 							cookies_pack_a[_domain] = _Cookies;
 							if (cookie_readonly!=false) {}
-							else {
-								saveCookieToFile(cookies_pack_id, cookies_pack_a);
-							}
+							else { saveCookieToFile(cookies_pack_id, cookies_pack_a); }
 						}
 					}
 					///////////////////////////////////////////////////////// cookie }
 
-					if(call_opts.return_raw==true){
-						rt.resp = resp;
-						rt.STS = 'OK';
-						resolve(rt);
+					if(call_opts.return_raw==true){ //some streaming cases need .resp
+						resolve(o2o(rt,{resp,STS:'OK'}));
 					}else{
-
 						buff = await stream2buffer_p(resp);
 						rt.exectime = now() - tm0;
-
-						rt.buff = buff;
-
+						rt.buff = buff;//some binary/file return needs
 						if (content_encoding == 'gzip') {
 							rt.gz_len = Buffer.byteLength(buff);
 							var buff_s = buff.toString();
 							try {
 								var decoded = libs.zlib.gunzipSync(buff);
 								var body; //= decoded ? decoded.toString() : "";
-								if (_encoding) {
+								//TODO add base64 handling here.
+								if (_encoding) { // special handling for gb2312 etc.
 									var iconv = require('iconv-lite');
 									body = iconv.decode(decoded, _encoding) || "";
 								}
-								else {
-									body = decoded ? decoded.toString() : "";
-								}
+								else { body = decoded ? decoded.toString() : ""; }
 								rt.body = body;
 								rt.body_len = body.length; //Buffer.byteLength(body);
 								rt.STS = 'OK';
@@ -452,23 +429,20 @@ module.exports = function(init_opts) {
 								resolve(rt);
 							});
 						}
-						else {
+						else { //assuming plain-text..
 							var buff_s;
 							if (_encoding == 'base64') { //deprecated, for some old interfaces only
 								buff_s = buff.toString('base64') || "";
 							}
-							else if (_encoding) {
+							else if (_encoding) { //special for gb2312 etc.
 								var iconv = require('iconv-lite');
 								buff_s = iconv.decode(buff, _encoding) || "";
 							}
-							else {
-								buff_s = buff.toString();
-							}
+							else { buff_s = buff.toString(); }
 							rt.body = buff_s;
 							if (!buff_s) {
 								rt.reqp = reqp; //for debug only
-							}
-							else {
+							} else {
 								rt.body_len = buff_s.length;
 								rt.STS = 'OK';
 							}
@@ -484,9 +458,7 @@ module.exports = function(init_opts) {
 				clearTimeout(tm_check);
 				resolve({ STS: "KO", errmsg: "" + err });
 			});
-			if (post_s) {
-				req.write(post_s)
-			}
+			if (post_s) { req.write(post_s) }
 			if (debug_level > 2) logger.log('---- before req.end()',reqp.url || reqp.href);
 			req.end();
 		}
@@ -504,8 +476,7 @@ module.exports = function(init_opts) {
 			.catch(err => err)
 			.then(rst => (--_concur_c, resolve(rst)))
 		));
-		//schedule queue:
-		if (!_concur_checking) {
+		if (!_concur_checking) { //schedule queue:
 			_concur_checking = true;
 			setTimeout(_process_task_q, 1);
 		}
