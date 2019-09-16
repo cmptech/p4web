@@ -1,6 +1,4 @@
-module.exports = function(init_opts) {
-	const getRegExpMatch = (re,s) => { var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" };
-	const isEmpty=(o,i)=>{for(i in o){return!1}return!0}
+module.exports = (init_opts) => {
 	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {});
 	const o2s = function(o) { try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } };
 	//const s2o=function(s){try{return JSON.parse(s);}catch(ex){}};//which only accepts {"m":"XXXX"} but fail for parsing like {m:"XXXX"}
@@ -130,13 +128,25 @@ module.exports = function(init_opts) {
 
 	const setDebugLevel = d => { if (d > 0) logger.log('.setDebugLevel=', d); debug_level = d; };
 
+	const is = (o,t)=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t);
 	var rt_p_web = o2o(libs,{
 		build_libs,
 		cookie_pack,
 		options,
 		logger,
 		argv2o,
-		getRegExpMatch,
+
+		is,
+		isEmpty:(o,i)=>{for(i in o){return!1}return!0},
+		isObject:(o)=>is(o,'object'),
+		isDate:(o)=>is(o,Date),
+		isNumber:(n)=>is(n,Number)||is(n,'number'),
+		isNull:(o)=>(o===null),
+		isUndef:(o)=>(o===undefined),
+		isBool:(b)=>(b===true||b===false),
+		isArray:(a)=>is(a,Array),
+
+		getRegExpMatch: (re,s) => { var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" },
 		o2s,
 		s2o,
 		o2o,
@@ -154,7 +164,7 @@ module.exports = function(init_opts) {
 		getDomain,
 		getTimeStr,
 		getTimeStr2,
-		isEmpty,
+		
 		isOK,
 		isAllOK,
 
