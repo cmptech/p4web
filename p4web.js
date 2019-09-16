@@ -12,9 +12,7 @@ module.exports = function(init_opts) {
 	}
 	const options = o2o(argv2o(), init_opts);
 
-	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false,
-		agent, proxy_server,
-	} = options;
+	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false, agent, proxy_server } = options;
 
 	const build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt);
 	const libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
@@ -25,9 +23,9 @@ module.exports = function(init_opts) {
 			((['http:','https:'].indexOf(proxy_opts.protocol)>=0)?'https':'socks')+'-proxy-agent'
 		)(proxy_opts);
 	}
-	var P = function(o){ return (typeof(o)=='function') ? new Promise(o) : Promise.resolve(o); };
-	P.delay = (timeout) => P(resolve=>setTimeout(resolve,timeout||1));
-	P.all = (a) => Promise.all(a);
+	var P=(f)=>('function'==typeof f)?(new Promise(f)):Promise.resolve(f);
+	P.delay = (t) => P(resolve=>setTimeout(resolve,t>0?t:1));
+	P.all = (a=[]) => Promise.all(a);
 	P.reject = (o) => Promise.reject(o);
 	P.resolve = (o) => Promise.resolve(o);
 	const PSTS = (STS, rst, errmsg, errcode) => P({ STS, rst, errmsg, errcode });
@@ -46,6 +44,8 @@ module.exports = function(init_opts) {
 	//YYYY-MM-DD HH:mm:ss.SSS
 	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0b111110000011111000 or string '1111-11' with predefined name, fmt_a:{'YYYY':'1111',....}
 	const getTimeStr = (dt, fmt, tz) => (dt = dt || new Date(), (new Date(dt.getTime() + ((tz === null) ? 0 : ((tz || tz === 0) ? tz : (-dt.getTimezoneOffset() / 60))) * 3600 * 1000)).toISOString().replace('T', ' ').substr(0, 19));
+	//TODO
+	//const getTimeStr = (dt, fmt = 'YYYY-MM-DD HH:mm:ss', tz) => (dt = dt || new Date(), (new Date(dt.getTime() + ((tz === null) ? 0 : ((tz || tz === 0) ? tz : (-dt.getTimezoneOffset() / 60))) * 3600 * 1000)).toISOString().replace('T', ' ').substr(0, fmt.length));
 
 	var moment;
 	const getTimeStr2 = function(dt, fmt, tz='Asia/Beijing') {
@@ -144,6 +144,8 @@ module.exports = function(init_opts) {
 		uuid,
 		base64_encode,
 		base64_decode,
+		nothing:(o)=>o,
+		nothing_p:async(f)=>f,
 		P,
 		PSTS,
 		POK,
@@ -330,9 +332,7 @@ module.exports = function(init_opts) {
 			}
 			var timeout_check = reqp.timeout_check || 30000;
 			var tm_check = setTimeout(() => {
-				if (tm_check) {
-					resolve({ STS: "KO", errmsg: "timeout for " + timeout_check / 1000 + " sec..." });
-				}
+				if (tm_check) { resolve({ STS: "KO", errcode:504, errmsg: "timeout for " + timeout_check / 1000 + " sec..." }); }
 			}, timeout_check);
 
 			var tm0 = now();
