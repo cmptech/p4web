@@ -1,5 +1,12 @@
 var p4web=require('../p4web')();
-var {logger,getRegExpMatch,is,isObject,date,isDate,getTime,isNumber,isNull,isUndef,isBool,isArray,isEmpty}=p4web;
+var {logger,getRegExpMatch,is,isObject,date,isDate,getTime,isNumber,isNull,isUndef,isBool,isArray,isEmpty,
+		flag_JSON,
+		flag_Function,
+		flag_global,
+	options,
+}=p4web;
+logger.log({flag_JSON,flag_global,flag_Function});
+logger.log('options=',options);
 //var assert = (c1,c2) => (c1===c2) ? true : false;
 logger.log(getRegExpMatch(/.*(xx).*/,'yyxxzz')?1:0);
 logger.log(getRegExpMatch(/.*(xx).*/,'yyyxzz')?1:0);

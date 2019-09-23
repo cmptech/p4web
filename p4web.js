@@ -1,19 +1,40 @@
 module.exports = (init_opts) => {
-	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {});
-	const o2s = function(o) { try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } };
-	//const s2o=function(s){try{return JSON.parse(s);}catch(ex){}};//which only accepts {"m":"XXXX"} but fail for parsing like {m:"XXXX"}
-	const s2o = function(s) { try { return (new Function('return ' + s))() } catch (ex) {} }; //NOTES: some env not support new Function
-	function o2o(o1, o2, o3) {
-		if (o3) for (var k in o3) { o1[o3[k]] = o2[o3[k]] }
-		else for (var k in o2) { o1[k] = o2[k] };
-		return o1;
-	}
-	const options = o2o(argv2o(), init_opts);
-
-	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false, agent, proxy_server } = options;
-
+	const is = (o,t)=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t),
+		flag_Function = typeof(Function)=='function',
+		flag_JSON = typeof(JSON)=='object',
+		flag_global = typeof(global)!='undefined',
+		doNothing = (p)=>(p||{}),
+		nothing=(o)=>o,//little diff from doNothing
+		nothing_p=async(f)=>f,//diff with P()
+		isEmpty=(o,i)=>{for(i in o){return!1}return!0},
+		isObject=(o)=>is(o,'object'),
+		//ifFunction=(f)=(typeof f=='function');
+		ifFunction=(f)=>is(f,'function'),
+		isDate=(o)=>is(o,Date),
+		isNumber=(n)=>is(n,Number)||is(n,'number'),
+		isNull=(o)=>(o===null),
+		isUndef=(o)=>(o===undefined),
+		isBool=(b)=>(b===true||b===false),
+		isArray=(a)=>is(a,Array);
+	
 	const build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt);
 	const libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
+
+	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
+		o2o= (o1, o2, o3)=>{
+			if (o3) for (var k in o3) { o1[o3[k]] = o2[o3[k]] }
+			else for (var k in o2) { o1[k] = o2[k] };
+			return o1;
+		},
+		options = o2o(argv2o(), init_opts);
+
+	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false, agent, proxy_server } = options;
+	
+	const o2s = function(o) { if(!flag_JSON) throw new Error('o2s() need JSON'); try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } },
+		s2o = function(s) { try {
+			if(flag_Function) return (new Function('return ' + s))();
+			else if(flag_JSON) return JSON.parse(s);
+		} catch (ex) { } }; //NOTES: some env not support new Function
 
 	if(!agent && proxy_server){
 		var proxy_opts = libs.url.parse(proxy_server);
@@ -21,6 +42,7 @@ module.exports = (init_opts) => {
 			((['http:','https:'].indexOf(proxy_opts.protocol)>=0)?'https':'socks')+'-proxy-agent'
 		)(proxy_opts);
 	}
+
 	var P=(f)=>('function'==typeof f)?(new Promise(f)):Promise.resolve(f);
 	P.delay = (t) => P(resolve=>setTimeout(resolve,t>0?t:1));
 	P.all = (a=[]) => Promise.all(a);
@@ -30,7 +52,7 @@ module.exports = (init_opts) => {
 	const POK = (rst, errmsg, errcode) => PSTS('OK', rst, errmsg, errcode);
 	const PKO = (rst, errmsg, errcode) => PSTS('KO', rst, errmsg, errcode);
 	const isOK = (o) => (o && o.STS == 'OK');
-	function isAllOK(ra){ var b=false; for(var k in ra){ if(!isOK(ra[k]))return false; b=true; } return b; }
+	const isAllOK = (ra)=>{ var b=false; for(var k in ra){ if(!isOK(ra[k]))return false; b=true; } return b; }
 
 	var date = (dt) => (dt || new Date());
 	var getTime = (dt) => date(dt).getTime();
@@ -69,8 +91,6 @@ module.exports = (init_opts) => {
 	const base64_decode = t => Buffer.from(t, 'base64').toString();
 
 	const cookie_o2s = o => libs.querystring.stringify(o, ';');
-
-	var doNothing = (p)=>(p||{});
 
 	var trycatch = (fn,flagIgnoreErr=false) => {try{ return fn() }catch(ex){ return flagIgnoreErr ? '': ex } };
 	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve('') : P.reject(ex) } };
@@ -128,45 +148,23 @@ module.exports = (init_opts) => {
 
 	const setDebugLevel = d => { if (d > 0) logger.log('.setDebugLevel=', d); debug_level = d; };
 
-	const is = (o,t)=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t);
 	var rt_p_web = o2o(libs,{
-		build_libs,
-		cookie_pack,
-		options,
-		logger,
-		argv2o,
-
-		is,
-		isEmpty:(o,i)=>{for(i in o){return!1}return!0},
-		isObject:(o)=>is(o,'object'),
-		isDate:(o)=>is(o,Date),
-		isNumber:(n)=>is(n,Number)||is(n,'number'),
-		isNull:(o)=>(o===null),
-		isUndef:(o)=>(o===undefined),
-		isBool:(b)=>(b===true||b===false),
-		isArray:(a)=>is(a,Array),
-
+		build_libs, cookie_pack, options, logger, argv2o,
+		flag_JSON, flag_Function, flag_global,
+		is, isEmpty, isObject, isDate, isNumber, isNull, isUndef, isBool, isArray,
 		getRegExpMatch: (re,s) => { var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" },
-		o2s,
-		s2o,
-		o2o,
+		o2s, s2o, o2o,
 		stream2buffer_p,
 		uuid,
 		base64_encode,
 		base64_decode,
-		nothing:(o)=>o,
-		nothing_p:async(f)=>f,
-		P,
-		PSTS,
-		POK,
-		PKO,
+		P, PSTS, POK, PKO, isOK, isAllOK,
 		setDebugLevel,
 		getDomain,
 		getTimeStr,
 		getTimeStr2,
-		
-		isOK,
-		isAllOK,
+		nothing, nothing_p, isEmpty, doNothing,
+		date,now,getTime,timezoneOffset,timeStamp,trycatch,trycatch_p,
 
 		load_raw,save_raw,
 		load,save,
@@ -174,8 +172,6 @@ module.exports = (init_opts) => {
 		saveCookieToFile,
 		loadCookieFromFileRaw,
 		saveCookieToFileRaw,
-
-		doNothing,date,now,getTime,timezoneOffset,timeStamp,trycatch,trycatch_p,
 
 		filename: (typeof(__filename) != 'undefined') ? __filename : '???',
 	});

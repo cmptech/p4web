@@ -20,7 +20,7 @@
 //console.log(typeof(P));
 //console.log(typeof(new P()));
 
-p4web = require('./p4web')();
+p4web = require('../p4web')();
 var {P,POK}=p4web;
 //POK().then(r=>console.log(r));
 
