@@ -20,7 +20,7 @@ module.exports = (init_opts) => {
 	const build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt);
 	const libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
 
-	const argv2o = a => (a || process.argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
+	const argv2o = a => (a || require('process').argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
 		o2o= (o1, o2, o3)=>{
 			if (o3) for (var k in o3) { o1[o3[k]] = o2[o3[k]] }
 			else for (var k in o2) { o1[k] = o2[k] };
