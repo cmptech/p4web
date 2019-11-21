@@ -24,6 +24,12 @@ p4web = require('../p4web')();
 var {P,POK}=p4web;
 //POK().then(r=>console.log(r));
 
-P((resolve,rejectd)=>{
-		setTimeout(resolve,1111);
+//var r=Math.random();
+P((resolve,reject)=>{
+		setTimeout(()=>resolve(Math.random()),1111);
 		}).then(r=>console.log(r));
+
+P.delay(2222).then(()=>{
+	console.log(P(3333).then(r=>(console.log('r=',r),r)))
+});
+

@@ -1,21 +1,28 @@
+//Object/Array/String/Number/Boolean/RegExp/null/undefined
+//BigInt
 module.exports = (init_opts) => {
-	const is = (o,t)=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t),
+	var trycatch=(fn,flagIgnoreErr=false)=>{try{return fn()}catch(ex){return flagIgnoreErr?'':ex}};
+	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve('') : P.reject(ex) } };
+	const 
 		flag_Function = typeof(Function)=='function',
 		flag_JSON = typeof(JSON)=='object',
 		flag_global = typeof(global)!='undefined',
+		//flag_Array = typeof(Array)=='function',
 		doNothing = (p)=>(p||{}),
-		nothing=(o)=>o,//little diff from doNothing
+		nothing=(o)=>o,//little diff from doNothing...
 		nothing_p=async(f)=>f,//diff with P()
 		isEmpty=(o,i)=>{for(i in o){return!1}return!0},
+
+		is = (o,t)=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t),
 		isObject=(o)=>is(o,'object'),
-		//ifFunction=(f)=(typeof f=='function');
 		ifFunction=(f)=>is(f,'function'),
 		isDate=(o)=>is(o,Date),
 		isNumber=(n)=>is(n,Number)||is(n,'number'),
 		isNull=(o)=>(o===null),
 		isUndef=(o)=>(o===undefined),
 		isBool=(b)=>(b===true||b===false),
-		isArray=(a)=>is(a,Array);
+		isArray=(a)=>is(a,Array)
+	;
 	
 	const build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt);
 	const libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
@@ -34,6 +41,7 @@ module.exports = (init_opts) => {
 		s2o = function(s) { try {
 			if(flag_Function) return (new Function('return ' + s))();
 			else if(flag_JSON) return JSON.parse(s);
+			else throw Error('need Function or JSON');
 		} catch (ex) { } }; //NOTES: some env not support new Function
 
 	if(!agent && proxy_server){
@@ -42,8 +50,7 @@ module.exports = (init_opts) => {
 			((['http:','https:'].indexOf(proxy_opts.protocol)>=0)?'https':'socks')+'-proxy-agent'
 		)(proxy_opts);
 	}
-
-	var P=(f)=>('function'==typeof f)?(new Promise(f)):Promise.resolve(f);
+	var P=async(f)=>('function'==typeof f)?new Promise(f):f;
 	P.delay = (t) => P(resolve=>setTimeout(resolve,t>0?t:1));
 	P.all = (a=[]) => Promise.all(a);
 	P.reject = (o) => Promise.reject(o);
@@ -60,6 +67,7 @@ module.exports = (init_opts) => {
 	var timeStamp = (dt)=> (getTime(dt)/1000);
 	var now = () => getTime();
 
+	//TODO time_pattern() in future
 	//YYYY-MM-DD HH:mm:ss
 	//YYYY-MM-DD HH:mm:ss.SSS
 	//NOTES: fmt is not support yet... PLAN using masking for fmt is cool, such as 0b111110000011111000 or string '1111-11' with predefined name, fmt_a:{'YYYY':'1111',....}
@@ -77,24 +85,13 @@ module.exports = (init_opts) => {
 		if (!fmt) fmt = 'YYYY-MM-DD HH:mm:ss.SSS';
 		return moment(dt).format(fmt);
 	};
-
-	var uuid= () => {
-		var d = getTime();
-		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-			var r = (d + Math.random() * 16) % 16 | 0;
-			d = Math.floor(d / 16);
-			return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-		});
-	};
-
+	var uuid= (d=getTime()) => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+		var r = (d + Math.random() * 16) % 16 | 0; d = Math.floor(d / 16);
+		return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+	});
 	const base64_encode = t => Buffer.from(t).toString('base64');
 	const base64_decode = t => Buffer.from(t, 'base64').toString();
-
 	const cookie_o2s = o => libs.querystring.stringify(o, ';');
-
-	var trycatch = (fn,flagIgnoreErr=false) => {try{ return fn() }catch(ex){ return flagIgnoreErr ? '': ex } };
-	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve('') : P.reject(ex) } };
-
 	function cookie_s2o(s) {
 		var rt = {};
 		if (s && s != "") {
@@ -151,7 +148,8 @@ module.exports = (init_opts) => {
 	var rt_p_web = o2o(libs,{
 		build_libs, cookie_pack, options, logger, argv2o,
 		flag_JSON, flag_Function, flag_global,
-		is, isEmpty, isObject, isDate, isNumber, isNull, isUndef, isBool, isArray,
+		is, isEmpty,
+		isObject, isDate, isNumber, isNull, isUndef, isBool, isArray,
 		getRegExpMatch: (re,s) => { var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" },
 		o2s, s2o, o2o,
 		stream2buffer_p,
