@@ -8,6 +8,14 @@ var p4web=require('../p4web')({cookie_pack:'web1'});
 //)
 for (var k in p4web){
 	var v= p4web[k];
-	console.log(k,'=>',typeof(v));
+	var t= typeof v;
+	console.log(k,'=>',t);
+	if('function'==t){
+		try{
+			console.log(v());
+		}catch(ex){
+			console.log(ex);
+		}
+	}
 }
-console.log(p4web.P);
+//console.log(p4web.P);

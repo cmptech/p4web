@@ -1,3 +1,5 @@
 *.tmp
 *.cookie
 
+package-lock.json
+node_modules
