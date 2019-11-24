@@ -1,9 +1,8 @@
 //Object/Array/String/Number/Boolean/RegExp/null/undefined
 //BigInt
 module.exports = (init_opts) => {
-	var trycatch=(fn,flagIgnoreErr=false)=>{try{return fn()}catch(ex){return flagIgnoreErr?'':ex}};
-	var trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve('') : P.reject(ex) } };
-	const 
+	const trycatch=(fn,flagIgnoreErr=false)=>{try{return fn()}catch(ex){return flagIgnoreErr?'':ex}},
+		trycatch_p = async(fn,flagIgnoreErr=false) => {try{ return await fn() }catch(ex){ return flagIgnoreErr ? P.resolve('') : P.reject(ex) } },
 		flag_Function = typeof(Function)=='function',
 		flag_JSON = typeof(JSON)=='object',
 		flag_global = typeof(global)!='undefined',
@@ -21,29 +20,25 @@ module.exports = (init_opts) => {
 		isNull=(o)=>(o===null),
 		isUndef=(o)=>(o===undefined),
 		isBool=(b)=>(b===true||b===false),
-		isArray=(a)=>is(a,Array)
-	;
-	
-	const build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt);
-	const libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
+		isArray=(a)=>is(a,Array),
 
-	const argv2o = a => (a || require('process').argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
+		build_libs = (a,rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt),
+		libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']),
+		argv2o = a => (a || require('process').argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
+		o2s = function(o) { if(!flag_JSON) throw new Error('o2s() need JSON'); try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } },
+		s2o = function(s) { try {
+			if(flag_Function) return (new Function('return ' + s))();
+			else if(flag_JSON) return JSON.parse(s);
+			else throw Error('need Function or JSON');
+		} catch (ex) { } }, //NOTES: some env not support new Function
 		o2o= (o1, o2, o3)=>{
 			if (o3) for (var k in o3) { o1[o3[k]] = o2[o3[k]] }
 			else for (var k in o2) { o1[k] = o2[k] };
 			return o1;
 		},
-		options = o2o(argv2o(), init_opts);
-
+		options = o2o(argv2o(), init_opts)
+	;
 	var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false, agent, proxy_server } = options;
-	
-	const o2s = function(o) { if(!flag_JSON) throw new Error('o2s() need JSON'); try { return JSON.stringify(o); } catch (ex) { if (debug_level > 2) logger.log('JSON.stringify.err=', ex) } },
-		s2o = function(s) { try {
-			if(flag_Function) return (new Function('return ' + s))();
-			else if(flag_JSON) return JSON.parse(s);
-			else throw Error('need Function or JSON');
-		} catch (ex) { } }; //NOTES: some env not support new Function
-
 	if(!agent && proxy_server){
 		var proxy_opts = libs.url.parse(proxy_server);
 		agent = options.agent = new require(
@@ -329,10 +324,7 @@ module.exports = (init_opts) => {
 			reqp.headers['Accept-Encoding'] = _accept_encoding;
 
 			if (!reqp.headers['Referer']) {
-				if (reqp.referer_s) { reqp.headers['Referer'] = reqp.referer_s; }
-				else if (reqp.referer) { reqp.headers['Referer'] = reqp.referer; }
-				else if (reqp.Referer) { reqp.headers['Referer'] = reqp.Referer; }
-				else{ reqp.headers['Referer'] = reqp.href; }
+				reqp.headers['Referer'] = reqp.referer_s || reqp.referer || reqp.Referer || reqp.href;
 			}
 			var timeout_check = reqp.timeout_check || 30000;
 			var tm_check = setTimeout(() => {
