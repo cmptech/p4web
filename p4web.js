@@ -4,10 +4,10 @@ module.exports = (init_opts) => {
 	const rt_p_web = {
 		build_libs : (a=[],rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt),
 		P:async(f)=>('function'==typeof f)?new Promise(f):f,
-		flag_Function : 'function'==typeof Function,
-		flag_JSON : 'object'==typeof JSON,
-		flag_global : 'undefined'==typeof global,
-		flag_Array : 'function'==typeof Array,
+		hasFunction:()=>('function'==typeof Function),
+		hasJSON:()=>('object'==typeof JSON),
+		hasGlobal:()=>('undefined'==typeof global),
+		hasArray:()=>('function'==typeof Array),
 		trycatch:(fn,flagIgnoreErr=false)=>{try{return fn()}catch(ex){return flagIgnoreErr?'':ex}},
 		getRegExpMatch: (re,s) => { if(!re) return re; var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" },
 		argv2o : a => (a || require('process').argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
@@ -21,7 +21,7 @@ module.exports = (init_opts) => {
 		var libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
 		const
 		o2s = (o,f)=>trycatch(()=>JSON.stringify(o),undefined==f?true:f),
-		s2o = (s,f)=>trycatch(()=>(flag_Function?(Function('return '+s)()):(JSON.parse(s))),undefined==f?true:f),
+		s2o = (s,f)=>trycatch( hasFunction() ? ()=>Function('return '+s)() : ()=>JSON.parse(s) ,undefined==f?true:f),
 		o2o = (o1, o2, o3)=>{
 			if (o3) for (var k in o3) { o1[o3[k]] = o2[o3[k]] }
 			else for (var k in o2) { o1[k] = o2[k] };
