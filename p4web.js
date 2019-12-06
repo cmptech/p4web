@@ -18,7 +18,7 @@ module.exports = (init_opts) => {
 		is : (o,t='')=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t),
 	};
 	with(rt_p_web){
-		var libs = build_libs(['http','https','net','url','zlib','querystring','fs','os']);
+		var libs = build_libs(['http','https','net','url','zlib','querystring','fs','os','crypto']);
 		const
 		o2s = (o,f)=>trycatch(()=>JSON.stringify(o),undefined==f?true:f),
 		s2o = (s,f)=>trycatch( hasFunction() ? ()=>Function('return '+s)() : ()=>JSON.parse(s) ,undefined==f?true:f),
@@ -71,6 +71,8 @@ module.exports = (init_opts) => {
 			timezoneOfet : (dt) => date(dt).getTimezoneOffset(),
 			timeStamp : (dt)=> (getTime(dt)/1000),
 			now : () => getTime(),
+			md5 : s=>crypto.createHash('md5').update(s).digest("hex"),
+			//md5: function(){for(var m=[],l=0;64>l;)m[l]=0|4294967296*Math.abs(Math.sin(++l));return function(c){var e,g,f,a,h=[];c=unescape(encodeURI(c));for(var b=c.length,k=[e=1732584193,g=-271733879,~e,~g],d=0;d<=b;)h[d>>2]|=(c.charCodeAt(d)||128)<<8*(d++%4);h[c=16*(b+8>>6)+14]=8*b;for(d=0;d<c;d+=16){b=k;for(a=0;64>a;)b=[f=b[3],(e=b[1]|0)+((f=b[0]+[e&(g=b[2])|~e&f,f&e|~f&g,e^g^f,g^(e|~f)][b=a>>4]+(m[a]+(h[[a,5*a+1,3*a+5,7*a][b]%16+d]|0)))<<(b=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21][4*b+a++%4])|f>>>32-b),e,g];for(a=4;a;)k[--a]=k[a]+b[a]}for(c="";32>a;)c+=(k[a>>3]>>4*(1^a++&7)&15).toString(16);return c}}(),
 			uuid : (d=getTime()) => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
 				var r = (d + Math.random() * 16) % 16 | 0; d = Math.floor(d / 16);
 				return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
@@ -318,7 +320,6 @@ module.exports = (init_opts) => {
 					logger.log('DEBUG', 'reqp=', reqp);
 				}
 
-				//try{
 				var resp = await P((r,j)=>(web.request || web.createConnection)(reqp,r).on('error',j).end(post_s));
 
 				var _encoding = reqp.encoding || '';
@@ -358,7 +359,6 @@ module.exports = (init_opts) => {
 					if (content_encoding == 'gzip') {
 						rt.gz_len = Buffer.byteLength(buff);
 						var buff_s = buff.toString();
-						//try {
 						var decoded = libs.zlib.gunzipSync(buff);
 						var body; //= decoded ? decoded.toString() : "";
 						//TODO add base64 handling here.
@@ -371,11 +371,6 @@ module.exports = (init_opts) => {
 						rt.body_len = body.length; //Buffer.byteLength(body);
 						rt.STS = 'OK';
 						resolve(rt);
-						//}
-						//catch (ex) {
-						//	logger.log('DBG GZ ERR', ex);
-						//	reject(ex);
-						//}
 						if((!body) && buff_s){
 							logger.log('DEBUG: web1_p failed to decode',rt.gz_len,buff);
 						}
@@ -410,9 +405,6 @@ module.exports = (init_opts) => {
 						resolve(rt);
 					}
 				}
-				//}catch(err){
-				//	reject(err);
-				//}
 			}
 			catch (ex) {
 				rt.errmsg = '' + ex;
