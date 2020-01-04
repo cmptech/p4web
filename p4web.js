@@ -2,6 +2,7 @@
 //BigInt
 module.exports = (init_opts) => {
 	const rt_p_web = {
+		loop: (o,f)=>{for(var k in o){f(k,o[k])}},
 		build_libs : (a=[],rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt),
 		P:async(f)=>('function'==typeof f)?new Promise(f):f,
 		hasFunction:()=>('function'==typeof Function),
@@ -239,10 +240,11 @@ module.exports = (init_opts) => {
 				if (!reqp.headers['user-agent']) reqp.headers['user-agent'] = "Mozilla/5.0 (Windows NT 5.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.19 Safari/537.36";
 
 				//////////////////////////////////////////////// handle cookies before send {
-				var _domain = getDomain(_hostname);
+				//var _domain = getDomain(_hostname);
 				var cookies_pack_id = reqp.cookie_pack || options.cookie_pack || (e => { throw new Error(e) })('.cookie_pack is mandatory now because share cookie file not good.');
 				var cookies_pack_a = reqp.resetCookie ? {} : (loadCookieFromFile(cookies_pack_id) || {});
-				var req_cookie_a = cookies_pack_a[_domain] || {};
+				//var req_cookie_a = cookies_pack_a[_domain] || {};
+				var req_cookie_a = cookies_pack_a || {};
 
 				//insert/update
 				if (reqp.headers['Cookie']) {
@@ -274,7 +276,8 @@ module.exports = (init_opts) => {
 				}
 
 				reqp.headers['Cookie'] = req_cookie_s;
-				cookies_pack_a[_domain] = req_cookie_a;
+				//cookies_pack_a[_domain] = req_cookie_a;
+				cookies_pack_a = o2o(cookies_pack_a,req_cookie_a);
 
 				if (cookie_readonly) {}
 				else { saveCookieToFile(cookies_pack_id, cookies_pack_a); }
@@ -320,6 +323,7 @@ module.exports = (init_opts) => {
 					logger.log('DEBUG', 'reqp=', reqp);
 				}
 
+				//try{
 				var resp = await P((r,j)=>(web.request || web.createConnection)(reqp,r).on('error',j).end(post_s));
 
 				var _encoding = reqp.encoding || '';
@@ -332,7 +336,8 @@ module.exports = (init_opts) => {
 				///////////////////////////////////////////////////////// cookie {
 				var headers_set_cookie_a = resp_headers['set-cookie'] || []; 
 				var cookies_pack_a = loadCookieFromFile(cookies_pack_id) || {};
-				var _Cookies = cookies_pack_a[_domain] || {};
+				//var _Cookies = cookies_pack_a[_domain] || {};
+				var _Cookies = cookies_pack_a || {};
 				if (headers_set_cookie_a && headers_set_cookie_a.length>0) {
 					var f_update = false;
 					headers_set_cookie_a.forEach(function(headers_set_cookie) {
@@ -343,7 +348,8 @@ module.exports = (init_opts) => {
 					});
 					if (f_update) {
 						rt.cookies = _Cookies;
-						cookies_pack_a[_domain] = _Cookies;
+						//cookies_pack_a[_domain] = _Cookies;
+						cookies_pack_a = o2o(cookies_pack_a,_Cookies);
 						if (cookie_readonly!=false) {}
 						else { saveCookieToFile(cookies_pack_id, cookies_pack_a); }
 					}
