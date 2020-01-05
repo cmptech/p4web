@@ -333,7 +333,7 @@ module.exports = (init_opts) => {
 				var resp_headers = rt.headers = resp.headers || {};
 				var content_encoding = resp_headers['content-encoding'];
 
-				///////////////////////////////////////////////////////// cookie {
+				///////////////////////////////////////////////////////// handle cookies afterward {
 				var headers_set_cookie_a = resp_headers['set-cookie'] || []; 
 				var cookies_pack_a = loadCookieFromFile(cookies_pack_id) || {};
 				var _Cookies = cookies_pack_a[_domain] || {};
