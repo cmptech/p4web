@@ -32,6 +32,29 @@ module.exports = (init_opts) => {
 		P.all = (a=[]) => Promise.all(a);
 		P.reject = (o) => Promise.reject(o);
 		P.resolve = (o) => Promise.resolve(o);
+
+		//aws s3
+		//var AWS = require('aws-sdk');
+		//var s3 = new AWS.S3();
+		//var s3_save_raw_p = (f,Body) => s3.putObject({
+		//	Bucket,
+		//	Key: f,
+		//	Body,
+		//	//ACL: 'public-read'
+		//}).promise();
+		//var s3_save_p = (f,o) => s3_save_raw_p(f,o2s(o));
+		//var s3_load_raw_p = async (f) => {
+		//	try{
+		//		var obj = await s3.getObject({Bucket,Key:f}).promise() || {};
+		//		var {Body, ContentType, AcceptRanges,LastModified,ContentLength,ETag,Metadata} = obj;
+		//		var sBody = Body?Body.toString():null;//toString('utf-8')
+		//		return sBody;
+		//	}catch(ex){
+		//		return {STS:'KO',errmsg:''+ex}
+		//	}
+		//}
+		//var s3_load_p = async(f)=>s2o(await s3_load_raw_p(f));
+		
 		var moment;
 		o2o(rt_p_web,libs);
 		o2o(rt_p_web,{
@@ -120,7 +143,7 @@ module.exports = (init_opts) => {
 			}),
 		});
 		//
-		var {debug_level=0,logger=console, cookie_pack='default',cookie_readonly=false, agent, proxy_server } = options;
+		var {debug_level=0,logger=console, cookie_readonly=false, agent, proxy_server } = options;
 		if(!agent && proxy_server){
 			var proxy_opts = libs.url.parse(proxy_server);
 			agent = options.agent = new require(
