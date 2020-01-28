@@ -1,6 +1,6 @@
 {
   "name": "p4web",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Promise For Web",
   "main": "p4web.js",
   "license": "Communism"

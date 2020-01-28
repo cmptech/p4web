@@ -1,5 +1,3 @@
-//Object/Array/String/Number/Boolean/RegExp/null/undefined
-//BigInt
 module.exports = (init_opts) => {
 	const rt_p_web = {
 		loop: (o,f)=>{for(var k in o){f(k,o[k])}},
@@ -11,9 +9,9 @@ module.exports = (init_opts) => {
 		hasArray:()=>('function'==typeof Array),
 		trycatch:(fn,flagIgnoreErr=false)=>{try{return fn()}catch(ex){return flagIgnoreErr?'':ex}},
 		getRegExpMatch: (re,s) => { if(!re) return re; var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" },
-		argv2o : a => (a || require('process').argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
+		argv2o: a => (a || require('process').argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
 		//
-		doNothing : (p)=>(p||{}),
+		doNothing: (p)=>(p||{}),
 		nothing:(o)=>o,//little diff from doNothing...
 		nothing_p:async(f)=>f,
 		is : (o,t='')=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t),
@@ -33,32 +31,41 @@ module.exports = (init_opts) => {
 		P.reject = (o) => Promise.reject(o);
 		P.resolve = (o) => Promise.resolve(o);
 
-		//aws s3
-		//var AWS = require('aws-sdk');
-		//var s3 = new AWS.S3();
-		//var s3_save_raw_p = (f,Body) => s3.putObject({
-		//	Bucket,
-		//	Key: f,
-		//	Body,
-		//	//ACL: 'public-read'
-		//}).promise();
-		//var s3_save_p = (f,o) => s3_save_raw_p(f,o2s(o));
-		//var s3_load_raw_p = async (f) => {
-		//	try{
-		//		var obj = await s3.getObject({Bucket,Key:f}).promise() || {};
-		//		var {Body, ContentType, AcceptRanges,LastModified,ContentLength,ETag,Metadata} = obj;
-		//		var sBody = Body?Body.toString():null;//toString('utf-8')
-		//		return sBody;
-		//	}catch(ex){
-		//		return {STS:'KO',errmsg:''+ex}
-		//	}
-		//}
-		//var s3_load_p = async(f)=>s2o(await s3_load_raw_p(f));
-		
 		var moment;
 		o2o(rt_p_web,libs);
 		o2o(rt_p_web,{
 			o2s,s2o,o2o,
+
+			aws_s3:()=>{
+				var AWS = require('aws-sdk');
+				var s3 = new AWS.S3();
+				var s3_save_raw_p = (f,Body) => s3.putObject({
+					Bucket,
+					Key: f,
+					Body,
+					//ACL: 'public-read'
+				}).promise();
+				var s3_save_p = (f,o) => s3_save_raw_p(f,o2s(o));
+				var s3_load_raw_p = async (f) => {
+					try{
+						var obj = await s3.getObject({Bucket,Key:f}).promise() || {};
+						var {Body, ContentType, AcceptRanges,LastModified,ContentLength,ETag,Metadata} = obj;
+						var sBody = Body?Body.toString():null;//toString('utf-8')
+						return sBody;
+					}catch(ex){
+						return {STS:'KO',errmsg:''+ex}
+					}
+				}
+				var s3_load_p = async(f)=>s2o(await s3_load_raw_p(f));
+				return {
+					s3_load_raw_p,
+					s3_load_p,
+					s3_save_raw_p,
+					s3_save_p,
+					s3,
+					AWS
+				}
+			},
 
 			isObject:(o)=>is(o,'object'),
 			ifFunction:(f)=>is(f,'function'),
@@ -95,8 +102,8 @@ module.exports = (init_opts) => {
 			timezoneOfet : (dt) => date(dt).getTimezoneOffset(),
 			timeStamp : (dt)=> (getTime(dt)/1000),
 			now : () => getTime(),
-			md5 : s=>crypto.createHash('md5').update(s).digest("hex"),
-			//md5: function(){for(var m=[],l=0;64>l;)m[l]=0|4294967296*Math.abs(Math.sin(++l));return function(c){var e,g,f,a,h=[];c=unescape(encodeURI(c));for(var b=c.length,k=[e=1732584193,g=-271733879,~e,~g],d=0;d<=b;)h[d>>2]|=(c.charCodeAt(d)||128)<<8*(d++%4);h[c=16*(b+8>>6)+14]=8*b;for(d=0;d<c;d+=16){b=k;for(a=0;64>a;)b=[f=b[3],(e=b[1]|0)+((f=b[0]+[e&(g=b[2])|~e&f,f&e|~f&g,e^g^f,g^(e|~f)][b=a>>4]+(m[a]+(h[[a,5*a+1,3*a+5,7*a][b]%16+d]|0)))<<(b=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21][4*b+a++%4])|f>>>32-b),e,g];for(a=4;a;)k[--a]=k[a]+b[a]}for(c="";32>a;)c+=(k[a>>3]>>4*(1^a++&7)&15).toString(16);return c}}(),
+			md5x : s=>crypto.createHash('md5').update(s).digest("hex"),
+			md5: function(){for(var m=[],l=0;64>l;)m[l]=0|4294967296*Math.abs(Math.sin(++l));return function(c){var e,g,f,a,h=[];c=unescape(encodeURI(c));for(var b=c.length,k=[e=1732584193,g=-271733879,~e,~g],d=0;d<=b;)h[d>>2]|=(c.charCodeAt(d)||128)<<8*(d++%4);h[c=16*(b+8>>6)+14]=8*b;for(d=0;d<c;d+=16){b=k;for(a=0;64>a;)b=[f=b[3],(e=b[1]|0)+((f=b[0]+[e&(g=b[2])|~e&f,f&e|~f&g,e^g^f,g^(e|~f)][b=a>>4]+(m[a]+(h[[a,5*a+1,3*a+5,7*a][b]%16+d]|0)))<<(b=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21][4*b+a++%4])|f>>>32-b),e,g];for(a=4;a;)k[--a]=k[a]+b[a]}for(c="";32>a;)c+=(k[a>>3]>>4*(1^a++&7)&15).toString(16);return c}}(),
 			uuid : (d=getTime()) => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
 				var r = (d + Math.random() * 16) % 16 | 0; d = Math.floor(d / 16);
 				return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
@@ -152,6 +159,7 @@ module.exports = (init_opts) => {
 		}
 		//
 		o2o(rt_p_web,{
+			logger,
 			setDebugLevel : d => { if (d > 0) logger.log('.setDebugLevel=', d); debug_level = d; },
 			//@ref http://www.primaryobjects.com/2012/11/19/parsing-hostname-and-domain-from-a-url-with-javascript/
 			//PROBLEM: even read RFC 2965, still unknown how to get better for ("www.example.com" and "example.co.ca") etc.
