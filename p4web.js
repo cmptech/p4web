@@ -1,5 +1,8 @@
 module.exports = (init_opts) => {
 	const rt_p_web = {
+		quit:x=>process.exit(x||0),
+		//asStr:o=>(o&&o.toString)?o.toString():(''+o),
+		//branch:
 		loop: (o,f)=>{for(var k in o){f(k,o[k])}},
 		build_libs : (a=[],rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt),
 		P:async(f)=>('function'==typeof f)?new Promise(f):f,
@@ -135,6 +138,11 @@ module.exports = (init_opts) => {
 			loadCookieFromFile : (fn) => (fn && fn.indexOf('.raw') >= 0) ? loadCookieFromFileRaw(fn) : s2o(load_raw(fn+'.cookie')),
 			saveCookieToFileRaw : (fn, ck) => save_raw(fn+'.cookie',ck),
 			saveCookieToFile : (fn, ck) => saveCookieToFileRaw(fn, (fn && fn.indexOf('.raw') >= 0) ? ck : o2s(ck)),
+			//
+			save_raw_p : (f,t)=>trycatch_p(()=>writeFile_p(f,('string'==typeof t)?t:o2s(t)),true),
+			load_raw_p : (f)=>trycatch_p(()=>readFile_p(f),true),
+			load_p : async(f)=>s2o(await my_load_raw_p(f,true)),
+			save_p : (f,t)=>my_save_raw_p(f,o2s(t)),
 
 			stream2buffer_p : (stream) => P( (resolve, reject) =>{
 				if(stream){
