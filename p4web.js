@@ -39,7 +39,7 @@ module.exports = (init_opts) => {
 		o2o(rt_p_web,{
 			o2s,s2o,o2o,
 
-			aws_s3:()=>{
+			aws_s3:(Bucket)=>{
 				var AWS = require('aws-sdk');
 				var s3 = new AWS.S3();
 				var s3_save_raw_p = (f,Body) => s3.putObject({
