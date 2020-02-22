@@ -141,8 +141,8 @@ module.exports = (init_opts) => {
 			//
 			save_raw_p : (f,t)=>trycatch_p(()=>writeFile_p(f,('string'==typeof t)?t:o2s(t)),true),
 			load_raw_p : (f)=>trycatch_p(()=>readFile_p(f),true),
-			load_p : async(f)=>s2o(await my_load_raw_p(f,true)),
-			save_p : (f,t)=>my_save_raw_p(f,o2s(t)),
+			load_p : async(f)=>s2o(await rt_p_web.load_raw_p(f,true)),
+			save_p : (f,t)=>rt_p_web.save_raw_p(f,o2s(t)),
 
 			stream2buffer_p : (stream) => P( (resolve, reject) =>{
 				if(stream){
