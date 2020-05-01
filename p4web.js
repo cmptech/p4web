@@ -1,26 +1,41 @@
 module.exports = (init_opts) => {
+
+	var P=(f)=>('function'==typeof f)?new Promise(f):P.resolve(f);
+	P.all    =(a)=>Promise.all(a||[]);
+	P.delay  =(t)=>P(resolve=>setTimeout(resolve,t>0?t:1));
+	P.reject =(o)=>Promise.reject(o);
+	P.resolve=(o)=>Promise.resolve(o);
+	
 	const rt_p_web = {
+		P,
 		quit:x=>process.exit(x||0),
 		//asStr:o=>(o&&o.toString)?o.toString():(''+o),
 		//branch:
 		loop: (o,f)=>{for(var k in o){f(k,o[k])}},
-		build_libs : (a=[],rt={}) => (a.map((v,k)=>(rt[v]=require(v))),rt),
-		P:async(f)=>('function'==typeof f)?new Promise(f):f,
+		build_libs : (a,rt) => (rt=rt||{},(a||[]).map((v,k)=>(rt[v]=require(v))),rt),
 		hasFunction:()=>('function'==typeof Function),
 		hasJSON:()=>('object'==typeof JSON),
 		hasGlobal:()=>('undefined'==typeof global),
 		hasArray:()=>('function'==typeof Array),
-		trycatch:(fn,flagIgnoreErr=false)=>{try{return fn()}catch(ex){return flagIgnoreErr?'':ex}},
+		trycatch:(fn,flagIgnoreErr)=>{try{return fn()}catch(ex){return flagIgnoreErr?'':ex}},
 		getRegExpMatch: (re,s) => { if(!re) return re; var ra=re.exec(s); return (ra && ra[1]) ? ra[1] : "" },
 		argv2o: a => (a || require('process').argv || []).reduce((r, e) => ((m = e.match(/^(\/|--?)([\w-]*)="?(.*)"?$/)) && (r[m[2]] = m[3]), r), {}),
 		//
 		doNothing: (p)=>(p||{}),
 		nothing:(o)=>o,//little diff from doNothing...
-		nothing_p:async(f)=>f,
-		is : (o,t='')=> (typeof t=='string') ? (typeof(o)==t) : (o instanceof t),
+		nothing_p:(f)=>P(f),
+		//is : (o,t)=>(t=t||'', ('string'==typeof t) ? (t==typeof o) : (o instanceof t)),
+		is : (o,t) => {
+			if(t=='null'||t==null){
+				if (o==null) return true;
+			}
+			return ('string'==typeof t) ? (t==typeof o) : (o instanceof t)
+		},
 	};
 	with(rt_p_web){
-		var libs = build_libs(['http','https','net','url','zlib','querystring','fs','os','crypto']);
+		var libs = build_libs(['http','https','net','url','zlib','querystring','fs','os','crypto','util']);
+		const readFile_p = libs.util.promisify(libs.fs.readFile);
+		const writeFile_p = libs.util.promisify(libs.fs.writeFile);
 		const
 		o2s = (o,f)=>trycatch(()=>JSON.stringify(o),undefined==f?true:f),
 		s2o = (s,f)=>trycatch( hasFunction() ? ()=>Function('return '+s)() : ()=>JSON.parse(s) ,undefined==f?true:f),
@@ -29,10 +44,6 @@ module.exports = (init_opts) => {
 			else for (var k in o2) { o1[k] = o2[k] };
 			return o1;
 		};
-		P.delay = (t) => P(resolve=>setTimeout(resolve,t>0?t:1));
-		P.all = (a=[]) => Promise.all(a);
-		P.reject = (o) => Promise.reject(o);
-		P.resolve = (o) => Promise.resolve(o);
 
 		var moment;
 		o2o(rt_p_web,libs);
@@ -139,6 +150,7 @@ module.exports = (init_opts) => {
 			saveCookieToFileRaw : (fn, ck) => save_raw(fn+'.cookie',ck),
 			saveCookieToFile : (fn, ck) => saveCookieToFileRaw(fn, (fn && fn.indexOf('.raw') >= 0) ? ck : o2s(ck)),
 			//
+			readFile_p,writeFile_p,
 			save_raw_p : (f,t)=>trycatch_p(()=>writeFile_p(f,('string'==typeof t)?t:o2s(t)),true),
 			load_raw_p : (f)=>trycatch_p(()=>readFile_p(f),true),
 			load_p : async(f)=>s2o(await rt_p_web.load_raw_p(f,true)),
@@ -362,7 +374,6 @@ module.exports = (init_opts) => {
 					logger.log('DEBUG', 'reqp=', reqp);
 				}
 
-				//try{
 				var resp = await P((r,j)=>(web.request || web.createConnection)(reqp,r).on('error',j).end(post_s));
 
 				var _encoding = reqp.encoding || '';
